@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RackRight – Warehouse Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --card:#ffffff; --ink:#1c1f24; --mute:#6a6f78; --line:#e2e0d9;
+  --acc:#f2a900; --acc-ink:#3a2a00; --navy:#1f3a5f; --good:#2e7d4f; --bad:#b3412e;
+  --c1:#1f3a5f; --c2:#3f7cac; --c3:#f2a900; --c4:#7a9e7e; --c5:#c4693d; --c6:#8c7aa9; --c7:#9aa3ad; --c8:#d9c27a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.4}
+.mono,.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+header{background:var(--navy);color:#fff;padding:14px 16px 0;position:sticky;top:0;z-index:5}
+header .top{display:flex;align-items:center;gap:10px;justify-content:space-between}
+header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.2px}
+header h1 span{color:var(--acc)}
+.proj{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:5px 8px;font:inherit;font-size:13px;width:150px}
+nav{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;background:none;border:0;color:#c9d3e0;font:inherit;font-weight:600;font-size:14px;padding:9px 12px;border-bottom:3px solid transparent;cursor:pointer}
+nav button.on{color:#fff;border-bottom-color:var(--acc)}
+main{max-width:980px;margin:0 auto;padding:14px 12px 90px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.card h2 .tag{font-size:11px;font-weight:600;background:#eef2f7;color:var(--navy);padding:2px 7px;border-radius:20px}
+.hint{color:var(--mute);font-size:12.5px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--mute);font-weight:500}
+label.f input,label.f select{font:inherit;font-size:15px;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#fbfbf9;width:100%}
+label.f input:focus,label.f select:focus{outline:2px solid var(--acc);border-color:var(--acc)}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.opt{border:1.5px solid var(--line);border-radius:9px;padding:10px;cursor:pointer;background:#fbfbf9;position:relative}
+.opt b{display:block;font-size:14px}
+.opt small{color:var(--mute);font-size:12px;display:block;margin-top:2px}
+.opt .lvl{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px}
+.lvl.m{background:#ece9df;color:#5d5643}.lvl.s{background:#e3eef8;color:#2a5a86}.lvl.a{background:#fff1cc;color:#7a5600}
+.opt.on{border-color:var(--navy);background:#eef2f7;box-shadow:inset 0 0 0 1px var(--navy)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi .l{font-size:11.5px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi .v{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:500;margin-top:2px}
+.kpi .s{font-size:11.5px;color:var(--mute)}
+.kpi.hero{background:var(--navy);color:#fff;border-color:var(--navy)}
+.kpi.hero .l,.kpi.hero .s{color:#c9d3e0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px;font-weight:600}
+td.r,th.r{text-align:right}
+tr.grp td{background:#f6f5f0;font-weight:700;font-size:12.5px;color:var(--navy)}
+tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.scroll{overflow-x:auto}
+.warn{background:#fff6e0;border:1px solid #f0d58a;color:#6a4b00;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.btn.p{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.btn.d{background:var(--navy);border-color:var(--navy);color:#fff}
+.bar{display:flex;height:22px;border-radius:5px;overflow:hidden;background:#eee}
+.bar div{height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mute);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hbars .row{display:grid;grid-template-columns:100px 1fr 90px;gap:8px;align-items:center;margin:6px 0;font-size:13px}
+.hbars .row .t{color:var(--mute);font-weight:600}
+.hbars .row .v{text-align:right;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.best{color:var(--good);font-weight:700}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:8px 0}
+.rates td input{width:100px;font:inherit;font-family:"IBM Plex Mono",monospace;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;text-align:right;background:#fbfbf9}
+.rates td input.chg{background:#fff1cc;border-color:var(--acc)}
+.rec{border:1.5px solid var(--acc);background:#fffaf0}
+.recrow{display:grid;grid-template-columns:1fr;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}
+.recrow:last-of-type{border-bottom:0}
+.recrow .z{font-size:11.5px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.recrow .w{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.recrow ul{margin:2px 0 0;padding-left:18px;font-size:13px;color:#3d424a}
+.recrow .alt{font-size:12.5px;color:var(--mute)}
+.fit{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:#e3f1e8;color:var(--good)}
+.fit.mid{background:#fff1cc;color:#7a5600}.fit.low{background:#f8e1dc;color:var(--bad)}
+.opt .star{position:absolute;bottom:8px;right:8px;font-size:10px;font-weight:700;color:#7a5600;background:#fff1cc;padding:1px 6px;border-radius:10px}
+.ss{font-size:11px;font-weight:600;color:#c9d3e0;white-space:nowrap}
+.ss.ok{color:#9fd8b3}.ss.err{color:#ffb4a3}
+.pcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.pcard.cur{border:2px solid var(--navy)}
+.pcard .nm{font-weight:700;font-size:15px}
+.pcard .meta{font-size:12px;color:var(--mute);margin:2px 0 8px}
+.pcard .fig{display:flex;gap:14px;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:13px;margin-bottom:8px}
+.pcard .fig span b{font-family:"IBM Plex Sans";font-weight:600;font-size:11px;color:var(--mute);margin-right:4px;text-transform:uppercase}
+ol.adv{margin:0;padding-left:20px}
+ol.adv li{margin:0 0 10px;font-size:13.5px}
+ol.adv li b{display:block;font-size:14px}
+.cf{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;margin-left:4px;vertical-align:1px}
+.cf.H{background:#e3f1e8;color:var(--good)}.cf.M{background:#fff1cc;color:#7a5600}.cf.L{background:#f3e3df;color:var(--bad)}
+.basis{display:block;font-size:11.5px;color:var(--mute);margin-top:2px;line-height:1.35}
+.basis a,.srcs a{color:var(--navy)}
+.srcs li{font-size:12.5px;margin-bottom:6px}
+.nat{display:none}html.native .nat{display:inline}html.native .web{display:none}
+.note{font-size:12px;color:var(--mute);margin-top:8px}
+.sheet{position:fixed;inset:0;background:rgba(20,25,35,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.sheet.on{display:flex}
+.sheet .in{background:#fff;width:100%;max-width:560px;border-radius:14px 14px 0 0;padding:16px;max-height:80vh;overflow:auto}
+textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:8px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:30}
+.toast.on{opacity:1}
+.layout svg{width:100%;height:auto;display:block}
+@media (max-width:560px){ .hbars .row{grid-template-columns:78px 1fr 78px} .kpi .v{font-size:18px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div><h1>Rack<span>Right</span> <small style="display:block;font-weight:500;font-size:10px;color:#c9d3e0;letter-spacing:.6px">WAREHOUSE DESIGNER</small></h1><span class="ss" id="saveState">Connecting…</span></div>
+    <input class="proj" id="projName" placeholder="Project name" aria-label="Project name">
+  </div>
+  <nav id="nav">
+    <button data-v="projects">Projects</button>
+    <button data-v="demand" class="on">1 · Demand</button>
+    <button data-v="design">2 · Design</button>
+    <button data-v="results">3 · Results</button>
+    <button data-v="layout">4 · Layout</button>
+    <button data-v="compare">5 · Compare</button>
+    <button data-v="rates">Rates</button>
+  </nav>
+</header>
+
+<main>
+<!-- PROJECTS -->
+<section class="view" id="v-projects">
+  <div class="card">
+    <h2>Projects</h2>
+    <p class="hint" id="storeHint">Connecting to project storage…</p>
+    <div class="btns"><button class="btn p" id="newProj">+ New project</button><button class="btn" id="dupProj">Duplicate current</button><button class="btn" id="exportJson">Export / import</button></div>
+  </div>
+  <div id="projList"></div>
+</section>
+<!-- DEMAND -->
+<section class="view on" id="v-demand">
+  <div class="card">
+    <h2>Product &amp; unit-load profile</h2>
+    <p class="hint">Drives pick and pack rates, equipment fit and the recommendations. Changing product type pre-fills typical size, order profile and temperature.</p>
+    <div class="grid" id="g-profile" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))"></div>
+  </div>
+  <div class="card">
+    <h2>Storage requirement</h2>
+    <p class="hint">Size on what you actually need to hold. Exclude dead stock before you get here.</p>
+    <div class="grid" id="g-storage"></div>
+  </div>
+  <div class="card">
+    <h2>Throughput</h2>
+    <p class="hint">Average day. The peak factors are applied for equipment counts; labour cost uses the average.</p>
+    <div class="grid" id="g-flow"></div>
+  </div>
+  <div class="card">
+    <h2>Operating pattern &amp; building envelope</h2>
+    <div class="grid" id="g-ops"></div>
+  </div>
+  <div class="btns"><button class="btn d" data-go="design">Next: choose the design →</button></div>
+</section>
+
+<!-- DESIGN -->
+<section class="view" id="v-design">
+  <div class="card rec">
+    <h2>★ Recommended for this profile</h2>
+    <p class="hint" id="recHint"></p>
+    <div id="recBox"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn p" id="applyRec">Apply recommended design</button></div>
+  </div>
+  <div class="card">
+    <h2>Pallet storage <span class="tag" id="t-pal"></span></h2>
+    <p class="hint">Bulk / reserve storage and full-pallet handling.</p>
+    <div class="opts" id="o-pallet"></div>
+  </div>
+  <div class="card">
+    <h2>Small-parts storage &amp; picking <span class="tag" id="t-sm"></span></h2>
+    <p class="hint">Tote / carton locations and the each-pick process.</p>
+    <div class="opts" id="o-small"></div>
+  </div>
+  <div class="card">
+    <h2>Horizontal pallet transport</h2>
+    <p class="hint">Dock ↔ storage ↔ line-side moves that the storage equipment doesn't do itself.</p>
+    <div class="opts" id="o-transport"></div>
+  </div>
+  <div class="card">
+    <h2>Outbound sortation</h2>
+    <div class="opts" id="o-sorter"></div>
+  </div>
+  <div class="card">
+    <h2>Conveyors</h2>
+    <label class="toggle"><input type="checkbox" id="convAuto" checked> Estimate conveyor lengths automatically from the design</label>
+    <div class="grid" id="g-conv"></div>
+    <p class="note" id="convNote"></p>
+  </div>
+  <div class="btns"><button class="btn d" data-go="results">See results →</button></div>
+</section>
+
+<!-- RESULTS -->
+<section class="view" id="v-results">
+  <div id="warns"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <h2>Capex breakdown</h2>
+    <div class="bar" id="capBar"></div>
+    <div class="legend" id="capLeg"></div>
+  </div>
+  <div class="card">
+    <h2>Layout</h2>
+    <p class="hint" id="layoutMiniHint"></p>
+    <div class="layout" id="layout"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn d" data-go="layout">Open layout &amp; recommendations →</button></div>
+  </div>
+  <div class="card">
+    <h2>Labour</h2>
+    <div class="scroll"><table id="labTbl"></table></div>
+  </div>
+  <div class="card">
+    <h2>Bill of quantities</h2>
+    <div class="scroll"><table id="boq"></table></div>
+    <div class="btns" style="margin-top:12px">
+      <button class="btn" id="copyCsv"><span class="nat">Share</span><span class="web">Copy</span> BoQ as CSV</button>
+      <button class="btn" id="copySum"><span class="nat">Share</span><span class="web">Copy</span> summary</button>
+    </div>
+  </div>
+</section>
+
+<!-- LAYOUT -->
+<section class="view" id="v-layout">
+  <div class="card">
+    <h2>Recommended layout</h2>
+    <p class="hint">Sized from your docks, storage, GTP, pack and sort requirements and drawn to scale. A concept block plan to test fit and flow, not a CAD drawing. Column grid, fire compartments and site access aren't modelled.</p>
+    <div class="grid">
+      <label class="f">Show layout for<select id="layFor"></select></label>
+      <label class="f">Flow<select id="layFlow"><option value="auto">Recommended</option><option value="u">U-flow (docks on one wall)</option><option value="through">Through-flow (docks on opposite walls)</option></select></label>
+    </div>
+  </div>
+  <div class="kpis" id="layKpis"></div>
+  <div class="card layout"><div id="laySvg"></div><div class="legend" id="layLeg"></div></div>
+  <div class="card rec"><h2>★ Layout recommendations</h2><ol class="adv" id="layRecs"></ol></div>
+  <div class="card"><h2>Zone schedule</h2><div class="scroll"><table id="layTbl"></table></div></div>
+</section>
+
+<!-- COMPARE -->
+<section class="view" id="v-compare">
+  <div class="card">
+    <h2>Manual vs mechanised vs automated</h2>
+    <p class="hint">Same demand: three reference concepts, the recommended design, and your own design from tab 2. Scroll sideways on a phone.</p>
+    <div class="scroll"><table id="cmpTbl"></table></div>
+  </div>
+  <div class="card">
+    <h2>Capex</h2><div class="hbars" id="cmpCap"></div>
+  </div>
+  <div class="card">
+    <h2>Annual opex</h2><div class="hbars" id="cmpOpex"></div>
+  </div>
+  <div class="card">
+    <h2>Cumulative cost over <span id="tcoYrsLbl"></span> years</h2>
+    <div id="tcoChart"></div>
+    <div class="legend" id="tcoLeg"></div>
+  </div>
+</section>
+
+<!-- RATES -->
+<section class="view" id="v-rates">
+  <div class="card">
+    <h2>Cost &amp; performance library</h2>
+    <p class="hint">UK base rates in £ (reviewed Nov 2026), each with its basis, source and a confidence rating: <span class="cf H">High</span> official statistic, <span class="cf M">Med</span> several published benchmarks agree, <span class="cf L">Low</span> single source or engineering allowance. Public prices are mostly US/Asia list or guide prices converted at ECB rates, so treat Low items as placeholders until you have supplier quotes. Edit any value; changes are highlighted.</p>
+    <div class="warn" style="background:#eef2f7;border-color:#c9d3e0;color:var(--ink)" id="regInfo"></div>
+    <p class="hint">Region is set on the Demand tab. Override currency or FX here for a custom region.</p>
+    <div class="grid" style="max-width:340px;margin-bottom:10px">
+      <label class="f">Currency<select id="cur"><option>£</option><option>€</option><option>$</option><option>zł</option><option>Ft</option></select></label>
+      <label class="f">FX (local units per £1)<input id="fx" type="number" step="0.001"></label>
+    </div>
+    <div class="scroll"><table class="rates" id="rateTbl"></table></div>
+    <div class="btns" style="margin-top:12px"><button class="btn" id="resetRates">Reset rates</button></div>
+  </div>
+  <div class="card">
+    <h2>Sources</h2>
+    <p class="hint">Public benchmarks used to set the defaults, accessed Nov 2026. Vendor list prices aren't published for most automation, so these are guide prices: always validate with at least two supplier quotes before a business case.</p>
+    <ol class="srcs" id="srcList" style="padding-left:18px;margin:0"></ol>
+  </div>
+</section>
+</main>
+
+<div class="sheet" id="sheet"><div class="in">
+  <h2 style="margin:0 0 6px;font-size:16px">Export / import</h2>
+  <p class="hint">Copy this text to keep or send the full model. Paste one back in and tap Import to load it.</p>
+  <textarea id="jsonBox"></textarea>
+  <div class="btns" style="margin-top:10px"><button class="btn" id="copyJson">Copy</button><button class="btn p" id="importJson">Import</button><button class="btn" id="closeSheet">Close</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== DEFINITIONS ===================== */
+const DEMAND = [
+ // [key,label,default,group,step]
+ ['palletPos','Pallet positions required',8000,'storage',100],
+ ['palletSkus','Distinct SKUs held on pallet',1500,'storage',50],
+ ['toteLoc','Tote / bin locations required',30000,'storage',500],
+ ['palIn','Pallets received / day',300,'flow',10],
+ ['palOut','Pallets out + replen / day',260,'flow',10],
+ ['horizMoves','Horizontal pallet moves / day',400,'flow',10],
+ ['horizDist','Avg transport distance one-way (m)',80,'flow',5],
+ ['orders','Orders / day',8000,'flow',100],
+ ['lpo','Lines per order',2.5,'flow',0.1],
+ ['upl','Units per line',1.3,'flow',0.1],
+ ['destinations','Sort destinations (carriers/routes)',24,'flow',1],
+ ['outLoads','Outbound loads (pallets / cages) / day',220,'flow',10],
+ ['shifts','Shifts / day',2,'ops',1],
+ ['shiftHrs','Productive hours / shift',7.5,'ops',0.5],
+ ['days','Operating days / year',300,'ops',1],
+ ['peakDay','Peak-day factor',1.4,'ops',0.05],
+ ['peakHr','Peak-hour factor',1.2,'ops',0.05],
+ ['height','Clear height under haunch (m)',12,'ops',0.5],
+];
+
+// Region presets. fx = local units per £1 (ECB reference rates, 16 Nov 2026).
+// lab = fully loaded warehouse operative cost per hour in local currency.
+// eq = equipment price factor vs UK; services/installation factor is derived from labour cost.
+const REGIONS = {
+ uk:{n:'United Kingdom',cur:'£',fx:1,lab:17.5,eq:1.00,why:'NLW £12.71 (Apr 2026); operatives typically £13.80–17/hr base; +~25% employer NI, pension and holiday [S16,S17]'},
+ de:{n:'Germany',cur:'€',fx:1.198,lab:28.0,eq:1.00,why:'Destatis: €45/hr whole-economy labour cost 2025 × ~62% for warehouse operatives [S19]'},
+ nl:{n:'Netherlands',cur:'€',fx:1.198,lab:29.5,eq:1.00,why:'Eurostat: €47.9/hr whole-economy 2025 × ~62% [S18]'},
+ pl:{n:'Poland',cur:'zł',fx:5.276,lab:52,eq:0.95,why:'Eurostat: €19.1/hr whole-economy 2025 × ~62% ≈ €11.8 ≈ 52 zł; local racking supply ~5% cheaper (assumption) [S18]'},
+ hu:{n:'Hungary',cur:'Ft',fx:436.6,lab:3430,eq:0.97,why:'Eurostat: €15.2/hr whole-economy 2025 × ~62% ≈ €9.4 ≈ 3,430 Ft [S18]'},
+ us:{n:'United States',cur:'$',fx:1.320,lab:28.7,eq:1.00,why:'BLS: warehousing material movers median $22.06/hr × ~1.3 benefits load [S20]'},
+ mx:{n:'Mexico – northern border',cur:'$',fx:1.320,lab:5.0,eq:1.08,why:'Total employer cost for entry-level operators ~$3.50–5.50/hr (border-zone minimum MXN 440.87/day); +8% import duty/freight on equipment (assumption) [S21]'},
+ custom:{n:'Custom (set rates yourself)',cur:null,fx:null,lab:null,eq:1.00,why:'Uses the currency, FX and labour rate you enter'},
+};
+const regionOf=D=>REGIONS[D.region]||REGIONS.uk;
+function regionFactors(D,R){const p=regionOf(D);const fx=S.fx||1;const labGBP=R.c_lab/fx;return {eq:p.eq,svc:0.6+0.4*Math.min(2,labGBP/17.5)}}
+const PRODUCT_TYPES = {
+ fashion:['Apparel & footwear','small','b2c','ambient'],
+ beauty:['Health & beauty','small','b2c','ambient'],
+ electronics:['Consumer electronics','medium','b2c','ambient'],
+ it:['IT assets / laptops / refurb','medium','mixed','ambient'],
+ pharma:['Pharmaceutical / medical','small','b2b','ambient'],
+ spares:['Spare parts / MRO','mixed','b2b','ambient'],
+ homeware:['Homeware / general merchandise','mixed','mixed','ambient'],
+ grocery:['Grocery – ambient','medium','grocery','ambient'],
+ chilled:['Fresh / chilled food','medium','grocery','chilled'],
+ frozen:['Frozen food','medium','grocery','frozen'],
+ bulky:['Bulky / furniture / white goods','large','mixed','ambient'],
+};
+const PROFILE = [
+ ['region','Region / country',Object.fromEntries(Object.entries(REGIONS).map(([k,v])=>[k,v.n])),'uk'],
+ ['productType','Product type',Object.fromEntries(Object.entries(PRODUCT_TYPES).map(([k,v])=>[k,v[0]])),'fashion'],
+ ['productSize','Typical item size',{small:'Small – fits a 600×400 tote, < 5 kg',medium:'Medium – carton / shoebox, 5–15 kg',large:'Large – over-tote / bulky, > 15 kg',mixed:'Mixed range'},'small'],
+ ['orderProfile','Order profile',{b2c:'B2C – eaches, small orders',b2b:'B2B – store / trade, cases',grocery:'Grocery e-com – many lines',mixed:'Omnichannel mix'},'b2c'],
+ ['temp','Temperature',{ambient:'Ambient',chilled:'Chilled (0–5 °C)',frozen:'Frozen (−25 °C)'},'ambient'],
+ ['palletType','Pallet footprint',{uk:'UK 1200 × 1000',euro:'Euro 1200 × 800',us:'US 48 × 40 in',half:'Half / display 800 × 600'},'uk'],
+ ['palletH','Pallet load height',{'1.0':'1.0 m','1.2':'1.2 m','1.5':'1.5 m','1.8':'1.8 m','2.0':'2.0 m'},'1.5'],
+ ['binH','Tote / bin height',{'220':'220 mm','330':'330 mm','425':'425 mm'},'330'],
+];
+const SIZE_K = {small:{pick:1,pack:1},medium:{pick:.85,pack:.85},large:{pick:.6,pack:.6},mixed:{pick:.85,pack:.9}};
+const PAL_AREA = {uk:1,euro:.85,us:1.02,half:.62};
+const RATES = [
+ // [key,label,default,unit,group,isMoney]
+ ['G','Pallet racking & MHE'],
+ ['r_apr','Adjustable pallet racking (wide aisle)',55,'/position',1],
+ ['r_vna','VNA racking incl. guidance',70,'/position',1],
+ ['r_drivein','Drive-in racking',95,'/position',1],
+ ['r_pshut','Pallet shuttle racking',140,'/position',1],
+ ['r_pasrs','Pallet AS/RS steel & rails',140,'/position',1],
+ ['c_reach','Reach truck',42000,'each',1],
+ ['c_vnatruck','VNA man-up turret truck',135000,'each',1],
+ ['c_cb','Counterbalance / PPT (transport)',28000,'each',1],
+ ['c_shuttleCar','Pallet shuttle carrier',32000,'each',1],
+ ['c_crane','Pallet stacker crane',420000,'each',1],
+ ['c_palConv','Pallet conveyor',1500,'/m',1],
+ ['p_reach','Reach truck pallet moves / hr',22,'/hr',0],
+ ['p_vna','VNA pallet moves / hr',28,'/hr',0],
+ ['p_drivein','Drive-in pallet moves / hr',18,'/hr',0],
+ ['p_shutCar','Shuttle carrier moves / hr',20,'/hr',0],
+ ['p_crane','Crane double cycles / hr',30,'/hr',0],
+ ['p_posPerCrane','Max positions per crane aisle',2500,'pos',0],
+ ['G','Small-parts storage'],
+ ['r_shelf','Static shelving',8,'/location',1],
+ ['c_cart','Pick cart',900,'each',1],
+ ['p_cart','Manual cart pick rate',90,'lines/hr',0],
+ ['p_amrAssist','AMR-assisted pick rate',165,'lines/hr',0],
+ ['c_amrPick','Collaborative pick AMR',30000,'each',1],
+ ['p_amrPickBot','Lines / hr per pick AMR',60,'lines/hr',0],
+ ['r_acr','ACR (tote robot) racking',18,'/location',1],
+ ['c_acr','ACR tote robot',48000,'each',1],
+ ['p_acr','ACR tote presentations / hr',55,'/hr',0],
+ ['c_acrPort','ACR workstation',30000,'each',1],
+ ['p_acrPort','ACR port pick rate',250,'lines/hr',0],
+ ['r_shut','Tote shuttle racking & lifts',55,'/location',1],
+ ['c_shut','Tote shuttle vehicle',38000,'each',1],
+ ['p_shut','Shuttle cycles / hr',140,'/hr',0],
+ ['c_shutPort','Shuttle GTP workstation',60000,'each',1],
+ ['p_shutPort','Shuttle port pick rate',280,'lines/hr',0],
+ ['r_asGrid','AutoStore grid (per bin cell)',32,'/bin',1],
+ ['r_asBin','AutoStore bin',13,'/bin',1],
+ ['c_asBot','AutoStore robot incl. charging',30000,'each',1],
+ ['c_asPort','AutoStore port',45000,'each',1],
+ ['p_asBot','Bin presentations / robot / hr',40,'/hr',0],
+ ['p_asPort','Port pick rate',200,'lines/hr',0],
+ ['n_asExtra','Extra ports (inbound / cycle count)',2,'ports',0],
+ ['h_asMax','Max AutoStore stack height',8.0,'m',0],
+ ['k_linesPres','Lines per bin presentation',1.3,'lines',0],
+ ['k_inbPres','Inbound presentations uplift',0.15,'ratio',0],
+ ['G','Transport, conveyors & sortation'],
+ ['c_palAmr','Pallet AMR',75000,'each',1],
+ ['c_fleet','AMR fleet manager software',70000,'fixed',1],
+ ['c_conv','Tote / carton conveyor (avg)',950,'/m',1],
+ ['c_spiral','Spiral / vertical conveyor',60000,'each',1],
+ ['c_divert','Merge / divert unit',8000,'each',1],
+ ['c_popBase','Pop-up wheel sorter – base',140000,'fixed',1],
+ ['c_popDiv','Pop-up wheel sorter – per divert',7000,'each',1],
+ ['p_popMax','Pop-up wheel max rate',5000,'items/hr',0],
+ ['c_xbBase','Cross-belt sorter – base',650000,'fixed',1],
+ ['c_xbRate','Cross-belt – per 1,000 items/hr',90000,'per k/hr',1],
+ ['c_xbChute','Cross-belt – per chute',4000,'each',1],
+ ['G','Software, services & fit-out'],
+ ['c_wcs','WCS / fleet integration (fixed)',180000,'fixed',1],
+ ['k_controls','Controls & electrical',0.08,'× automation',0],
+ ['k_install','Installation & commissioning',0.15,'× automation',0],
+ ['k_eng','Engineering & project management',0.08,'× equipment',0],
+ ['k_cont','Contingency',0.10,'× total',0],
+ ['r_fitout','Building fit-out (lighting, sprinklers, slab)',0,'/m²',1],
+ ['G','Layout & docks'],
+ ['m_door','Dock door centres',4.2,'m',0],
+ ['m_marsh','Marshalling depth',18,'m',0],
+ ['p_doorIn','Inbound pallets / door / hr',18,'/hr',0],
+ ['p_doorOut','Outbound loads / door / hr',15,'/hr',0],
+ ['k_arrive','Arrival / departure bunching',1.5,'× avg',0],
+ ['n_destDoor','Parcel destinations per outbound door',4,'dest',0],
+ ['m_recv','Receiving & QA area per inbound door',30,'m²',0],
+ ['m_pack','Area per pack station',10,'m²',0],
+ ['m_port','Area per GTP port (incl. conveyor)',30,'m²',0],
+ ['m_charge','Charging / parking per vehicle',4,'m²',0],
+ ['k_misc','Offices, welfare & plant allowance',0.08,'× zones',0],
+ ['G','Labour & running costs'],
+ ['c_lab','Labour cost, fully loaded (local currency)',17.5,'/hr',2],
+ ['k_indirect','Indirect labour uplift (supervision, admin)',0.15,'ratio',0],
+ ['k_absence','Absence / holiday cover for headcount',0.12,'ratio',0],
+ ['p_recv','Receiving pallets / hr per FTE',14,'/hr',0],
+ ['p_pack','Packing orders / hr per FTE',45,'/hr',0],
+ ['p_manSort','Manual sort items / hr per FTE',300,'/hr',0],
+ ['p_sortOp','Automated sort items / hr per operator',700,'/hr',0],
+ ['k_maintAuto','Automation maintenance / yr',0.03,'× capex',0],
+ ['k_maintRack','Racking & shelving maintenance / yr',0.005,'× capex',0],
+ ['c_mheRun','MHE truck running cost / yr',6500,'each',1],
+ ['c_botSw','Robot software & support / yr',1800,'per robot',1],
+ ['n_tco','TCO horizon',7,'years',0],
+];
+
+const SOURCES = {
+ S1:['Bastian Solutions – How much does pallet racking cost? (selective $50–75, drive-in $115–135 per position)','https://bastiansolutions.com/blog/how-much-does-pallet-racking-cost-'],
+ S2:['WarehousingCosts.com – Pallet racking cost 2026 (selective $50–120, drive-in $70–150, install $3–25/position)','https://warehousingcosts.com/guides/pallet-racking-costs'],
+ S3:['HEDA – Cost of new pallet racking 2026 (VNA $80–200, push-back $150–300 per position)','https://www.hedashelving.com/info/cost-of-new-pallet-racking-system-102881929.html'],
+ S4:['GoASRS – Pallet AS/RS guide ($300–800 per position fully installed vs $50–150 conventional)','https://goasrs.com/pallet-asrs-systems-guide/'],
+ S5:['DNC Automation – Automated pallet racking (stacker crane RM 0.8–2.5m per crane)','https://www.dnc-automation.com/automated-pallet-racking-system/'],
+ S6:['Kardex – How much does AutoStore cost? (typical systems $3–6m; ~30 bins/robot/hr rule of thumb)','https://www.kardex.com/en-us/blog/how-much-does-autostore-cost'],
+ S7:['Forrester TEI of AutoStore (hardware $1.6–23m across interviewees; composite $4.8m)','https://files.even-logistics.com/production/users/uploads/autostoresystem/solution/autostore/TEI_of_AutoStore_Dollar.pdf?dm=1753782490'],
+ S8:['Robotomated – Cube storage guide (cost per bin position $50–120)','https://robotomated.com/learn/warehouse/cube-storage-systems-guide'],
+ S9:['Robotomated – Robots for small warehouses (Locus Origin $35–45k)','https://robotomated.com/learn/warehouse/robots-for-small-warehouse-under-50000'],
+ S10:['Cleverence – Warehouse automation cost 2026 (AMRs $20–45k incl. software; $1–3k/robot/yr support)','https://www.cleverence.com/amp/articles/business-blogs/cost-2026-warehouse-automation-4728/'],
+ S11:['Robotomated – Hai Robotics HaiPick listings ($42–65k per ACR)','https://robotomated.com/explore/warehouse/hai-haipick-a100'],
+ S12:['RoboticsCenter – Logistics automation (OTTO 1500 pallet AMR ~$80k)','https://www.roboticscenter.ai/applications/logistics-automation'],
+ S13:['Roller conveyor price guide 2026 (powered roller ~$500–3,000 per metre)','https://img0.hospitalityhub.com.au/buying-guide/roller-conveyor-price-guide-australia-2026-what-you-pay-and-how-to-siz/f/27840'],
+ S14:['Robotomated – Vanderlande Evosort (system price from ~$3m, 20,000 items/hr)','https://robotomated.com/explore/warehouse/vanderlande-evosort'],
+ S15:['Best Ops Chain – AutoStore cost structure (software 8–12%, design 7–12%, install 15–25%, PM 5–8%)','https://bestopschainai.com/warehouse-inventory/autostore-faqs'],
+ S16:['GOV.UK – National Living Wage £12.71 from April 2026','https://www.gov.uk/government/news/lpc-recommendations-take-the-national-living-wage-to-1271'],
+ S17:['Breakroom – UK warehouse operative pay (e.g. Amazon £13.78–16.95/hr)','https://www.breakroom.cc/en-gb/employers/amazon/warehouse-operatives/answers/whats-the-average-pay'],
+ S18:['Eurostat 2025 hourly labour costs (NL €47.9, PL €19.1, HU €15.2, EU €34.9) – summary','https://getsix.eu/human-resources-payroll-in-poland/labour-costs-in-europe-2026-how-the-minimum-wage-in-poland-in-euro-compares-with-other-eu-countries/'],
+ S19:['Destatis via Tageskarte – Germany €45 per hour worked in 2025','https://www.tageskarte.io/zahlen/detail/deutsche-arbeitskosten-steigen-auf-45-euro-platz-5-im-eu-vergleich.html'],
+ S20:['US BLS – Warehousing & storage wages (material movers median $22.06/hr)','https://www.bls.gov/iag/tgs/iag493.htm'],
+ S21:['Cosmo Sourcing – Mexico wages 2026 (employer cost $3.50–5.50/hr; border minimum MXN 440.87/day)','https://www.cosmosourcing.com/blog/mexico-manufacturing-wages-labor-costs'],
+ S22:['ECB euro reference rates, 16 Nov 2026 (USD 1.1014, GBP 0.8345, PLN 4.403, HUF 364.35, MXN 20.44 per €)','https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html'],
+ S23:['Industrial mobile robot prices 2026 (pallet AMR AUD 100–200k; integration +30–60%)','https://img0.medicalsearch.com.au/industrial-mobile-robot-prices-australia-2026-labour-payback-for-warehouse-and-manufacturing-automation/f/27708'],
+};
+// confidence: H official statistic · M several published benchmarks agree · L single/indirect source or engineering assumption
+const RATE_SRC = {
+ r_apr:['M','$50–75 materials (US integrator) to $50–120 (2026 guide) per position; £55 ≈ $73 incl. install','S1,S2'],
+ r_vna:['M','VNA racking $80–200 per position incl. guidance rail; £70 ≈ $92','S3'],
+ r_drivein:['M','Drive-in $115–135 per position (2–4 deep); £95 ≈ $125','S1,S2'],
+ r_pshut:['L','Semi-automatic shuttle lanes priced like push-back ($150–300); £140 ≈ $185','S3'],
+ r_pasrs:['M','Steel & rails only. With cranes, conveyor and services the model lands ≈ £450–550/position, inside the $300–800 installed benchmark','S4'],
+ c_reach:['L','No public list prices. Typical new UK electric reach truck £35–50k; get a dealer quote',''],
+ c_vnatruck:['L','Man-up turret trucks typically £110–160k; dealer quote needed',''],
+ c_cb:['L','Electric counterbalance / powered pallet truck blended allowance',''],
+ c_shuttleCar:['L','Western-brand pallet shuttle carrier; Asian carriers can be far cheaper','S5'],
+ c_crane:['L','RM 0.8–2.5m per crane (≈ £135–420k) in Asia; European cranes sit at the top of that range','S5'],
+ c_palConv:['L','Pallet roller / chain conveyor incl. install; engineering allowance',''],
+ r_shelf:['L','Boltless shelving incl. install per location; engineering allowance',''],
+ c_amrPick:['M','Locus-type collaborative robots $35–45k; $20–45k incl. software','S9,S10'],
+ r_acr:['L','ACR racking per tote location; engineering allowance',''],
+ c_acr:['L','Hai ACR listing indications $42–65k; £48k ≈ $63k','S11'],
+ c_acrPort:['L','Workstation allowance',''],
+ r_shut:['L','Shuttle racking & lifts per location; allowance',''],
+ c_shut:['L','Tote shuttle vehicle; allowance',''],
+ c_shutPort:['L','GTP workstation incl. local conveyor; allowance',''],
+ r_asGrid:['M','Grid + bin ≈ £45 ($60) per bin cell, inside the $50–120 per bin position benchmark','S8'],
+ r_asBin:['M','See grid. Typical AutoStore totals $3–6m; the default model (30k bins) ≈ £4.5m','S6,S7'],
+ c_asBot:['M','Robot $30–50k; £30k ≈ $40k','S8,S15'],
+ c_asPort:['L','Port price varies widely by type (VersaPort to CarouselPort)','S6'],
+ p_asBot:['M','Kardex rule of thumb ~30 bins/robot/hr; 40 used as an actual-volume planning rate','S6'],
+ c_palAmr:['M','OTTO 1500 ~$80k; pallet AMRs AUD 100–200k (≈ £50–100k)','S12,S23'],
+ c_fleet:['L','Fleet manager and site integration; integration adds 30–60% to unit cost on small fleets','S23'],
+ c_conv:['M','Powered roller $500–3,000 per metre; £950 ≈ $1,250 mid-range MDR','S13'],
+ c_xbBase:['L','Calibrated so a 20,000/hr loop ≈ £2.5m (≈ $3.3m), consistent with ~$3m+ systems','S14'],
+ c_xbRate:['L','See base','S14'],
+ c_wcs:['L','WCS / integration fixed allowance',''],
+ k_controls:['M','Controller software typically 8–12% of hardware','S15'],
+ k_install:['M','Installation & commissioning 15–25% of hardware','S15'],
+ k_eng:['M','Design & engineering 7–12% plus PM 5–8%; combined allowance 8% of equipment','S15'],
+ k_cont:['L','Concept-stage contingency',''],
+ c_lab:['H','Set by region. UK: NLW £12.71 (Apr 2026), operatives typically £13.80–17/hr, plus ~25% on-costs','S16,S17'],
+ c_botSw:['M','$1–3k per robot per year support','S10'],
+ k_maintAuto:['L','Annual service contracts typically 2–4% of automation capex',''],
+};
+const PALLET = {
+ apr:{n:'Wide-aisle racking',d:'APR + reach trucks',l:'m',maxH:11.5,area:2.45},
+ vna:{n:'Very narrow aisle',d:'VNA racking + turret trucks',l:'s',maxH:14,area:1.9},
+ drivein:{n:'Drive-in',d:'Deep lanes, few SKUs',l:'m',maxH:11,area:1.3},
+ pshut:{n:'Pallet shuttle',d:'Deep lane + carriers',l:'s',maxH:12,area:1.15},
+ pasrs:{n:'Pallet AS/RS',d:'Stacker cranes, high bay',l:'a',maxH:45,area:1.0},
+ none:{n:'No pallet storage',d:'',l:'m'}
+};
+const SMALL = {
+ shelf:{n:'Shelving + cart pick',d:'Person-to-goods',l:'m'},
+ shelfamr:{n:'Shelving + pick AMRs',d:'Collaborative robots',l:'s'},
+ acr:{n:'Tote robots (ACR)',d:'Hai-type GTP, ≤10 m',l:'a'},
+ shuttle:{n:'Tote shuttle',d:'Multi-level shuttle GTP',l:'a'},
+ autostore:{n:'AutoStore cube',d:'Grid robots + ports',l:'a'},
+ none:{n:'No small parts',d:'',l:'m'}
+};
+const TRANSPORT = {
+ manual:{n:'Manual trucks',d:'PPT / counterbalance + drivers',l:'m'},
+ amr:{n:'Pallet AMRs',d:'Autonomous mobile robots',l:'a'},
+ none:{n:'Not needed',d:'',l:'m'}
+};
+const SORTER = {
+ none:{n:'Manual sort',d:'Staff build routes',l:'m'},
+ popup:{n:'Pop-up wheel',d:'≤ ~5,000 items/hr',l:'s'},
+ crossbelt:{n:'Cross-belt',d:'High rate, many chutes',l:'a'}
+};
+// Reference concepts adapt to the building and peak rate
+function concepts(D,R){
+ const sortPk=D.orders/(D.shifts*D.shiftHrs)*D.peakDay*D.peakHr;
+ return {
+  Manual:{pallet:'apr',small:'shelf',transport:'manual',sorter:'none',convAuto:true},
+  Mechanised:{pallet:'vna',small:'shelfamr',transport:'manual',sorter:sortPk>R.p_popMax?'crossbelt':'popup',convAuto:true},
+  Automated:{pallet:D.height>=18?'pasrs':'pshut',small:D.height<5?'acr':'autostore',transport:'amr',sorter:sortPk>R.p_popMax*0.6?'crossbelt':'popup',convAuto:true},
+ };
+}
+const GROUPS = ['Storage & racking','MHE vehicles','Automation & robotics','Conveyors & sortation','Software & controls','Services','Fit-out','Contingency'];
+const GCOL = ['var(--c1)','var(--c7)','var(--c3)','var(--c2)','var(--c6)','var(--c4)','var(--c8)','var(--c5)'];
+const LVL = {m:'Manual',s:'Semi',a:'Auto'};
+
+/* ===================== STATE ===================== */
+const DEF_DEMAND = Object.assign(Object.fromEntries(DEMAND.map(d=>[d[0],d[2]])),Object.fromEntries(PROFILE.map(p=>[p[0],p[3]])));
+const DEF_RATES = Object.fromEntries(RATES.filter(r=>r[0]!=='G').map(r=>[r[0],r[2]]));
+const DEF_DESIGN = {pallet:'vna',small:'autostore',transport:'amr',sorter:'popup',convAuto:true,conv:{m:200,spirals:0,diverts:6}};
+function fresh(){return {name:'',layout:{for:'mine',flow:'auto'},cur:'£',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
+let S = fresh();
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+const saved = load('whs_state');
+if(saved){S = Object.assign(fresh(),saved);S.layout={for:'mine',flow:'auto',...(saved.layout||{})};S.demand={...DEF_DEMAND,...saved.demand};S.rates={...DEF_RATES,...saved.rates};S.design={...DEF_DESIGN,...saved.design,conv:{...DEF_DESIGN.conv,...(saved.design||{}).conv}}}
+
+/* ===================== MODEL ===================== */
+function calc(design, D, R){
+  const fx=S.fx||1, RG=regionFactors(D,R), M=k=>R[k]*fx*RG.eq;   // £-base rates → local currency × regional equipment factor
+  const hrs=D.shifts*D.shiftHrs, pk=D.peakDay*D.peakHr;
+  const lphAvg=D.orders*D.lpo/hrs, lph=lphAvg*pk;
+  const pmAvg=(D.palIn+D.palOut)/hrs, pm=pmAvg*pk;
+  const ordAvg=D.orders/hrs, ordPk=ordAvg*pk;
+  const itemsPk=ordPk;                      // sortation unit = parcel / order container
+  const L=[], lab=[], warn=[], area={}, robots={n:0}, mhe={n:0}; let chargeVeh=0;
+  const SK=SIZE_K[D.productSize]||SIZE_K.mixed, cold=D.temp==='frozen'?0.85:D.temp==='chilled'?0.95:1;
+  const kPick=SK.pick*cold, kPack=SK.pack*cold, kTruck=cold;
+  const palPitch=parseFloat(D.palletH)+0.25, binH=parseFloat(D.binH)/1000;
+  if(D.productSize==='large'&&['acr','shuttle','autostore'].includes(design.small)) warn.push('Large / bulky items: most of the range will not fit a tote – goods-to-person tote systems are a poor fit.');
+  if(D.productSize==='mixed'&&['acr','shuttle','autostore'].includes(design.small)) warn.push('Mixed sizes: check what share of SKUs fits the tote before sizing the GTP system on the full range.');
+  if(D.temp==='frozen') warn.push('Frozen: manual productivity reduced 15% for PPE and warm-up breaks; check equipment is rated for −25 °C.');
+  const add=(g,item,qty,unit,rate)=>{ if(qty>0&&rate>0) L.push({g,item,qty,unit,rate,cost:qty*rate}); };
+  const labour=(fn,avgHeads,pkHeads)=>{ if(pkHeads>0||avgHeads>0) lab.push({fn,avg:avgHeads,pk:Math.ceil(pkHeads-1e-9)}); };
+  const ceil=Math.ceil;
+
+  /* ---- Pallet storage ---- */
+  const P=D.palletPos, pt=design.pallet;
+  if(pt!=='none'&&P>0){
+    const o=PALLET[pt];
+    let useH=Math.min(D.height,o.maxH);
+    if(D.height>o.maxH) warn.push(`${o.n}: usable height capped at ${o.maxH} m (building is ${D.height} m).`);
+    const pitch = pt==='pasrs'? palPitch*0.95 : palPitch;
+    const levels=Math.max(1,Math.floor(useH/pitch));
+    const ground=ceil(P/levels);
+    area.pallet=ground*o.area*(PAL_AREA[D.palletType]||1)*1.15;
+    const rk={apr:'r_apr',vna:'r_vna',drivein:'r_drivein',pshut:'r_pshut',pasrs:'r_pasrs'}[pt];
+    add('Storage & racking',`${o.n} – ${levels} levels`,P,'positions',M(rk));
+    if(pt==='apr'||pt==='drivein'){
+      const rate=(pt==='apr'?R.p_reach:R.p_drivein)*kTruck;
+      const n=ceil(pm/rate); mhe.n+=n;
+      add('MHE vehicles','Reach trucks',n,'each',M('c_reach'));
+      labour('Pallet put-away / retrieval',pmAvg/rate,n);
+    } else if(pt==='vna'){
+      const n=ceil(pm/(R.p_vna*kTruck)), pd=ceil(n/3); mhe.n+=n+pd;
+      add('MHE vehicles','VNA turret trucks',n,'each',M('c_vnatruck'));
+      add('MHE vehicles','Reach trucks for P&D stations',pd,'each',M('c_reach'));
+      labour('Pallet put-away / retrieval',pmAvg/(R.p_vna*kTruck)*1.33,n+pd);
+      if(useH>11) warn.push('VNA above ~11 m usually needs a super-flat (FM2 / DM-2) floor – check slab.');
+    } else if(pt==='pshut'){
+      const car=ceil(pm/R.p_shutCar), tr=ceil(pm/(R.p_reach*1.1)); mhe.n+=tr;
+      add('Automation & robotics','Pallet shuttle carriers',car,'each',M('c_shuttleCar'));
+      add('MHE vehicles','Reach trucks (lane feed)',tr,'each',M('c_reach'));
+      labour('Pallet put-away / retrieval',pmAvg/(R.p_reach*1.1),tr);
+      if(P/Math.max(1,D.palletSkus)<6) warn.push(`Pallet shuttle: only ${(P/Math.max(1,D.palletSkus)).toFixed(1)} pallets per SKU – lanes will be part-empty.`);
+    } else if(pt==='pasrs'){
+      const n=Math.max(ceil(pm/R.p_crane),ceil(P/R.p_posPerCrane));
+      add('Automation & robotics','Stacker cranes',n,'each',M('c_crane'));
+      add('Conveyors & sortation','Pallet in/out conveyor',n*25+30,'m',M('c_palConv'));
+      labour('AS/RS front-end operators',Math.max(1,n/4)*(pmAvg/pm),Math.max(1,ceil(n/4)));
+      if(useH<18) warn.push(`Pallet AS/RS at ${useH} m is low – cranes pay back best above ~20 m.`);
+      robots.crane=n;
+    }
+  }
+
+  /* ---- Small parts ---- */
+  const B=D.toteLoc, st=design.small;
+  const presAvg=lphAvg/R.k_linesPres*(1+R.k_inbPres), pres=lph/R.k_linesPres*(1+R.k_inbPres);
+  let pickers=0, ports=0;
+  if(st!=='none'&&B>0){
+    if(st==='shelf'||st==='shelfamr'){
+      const lev=Math.min(7,Math.max(4,Math.floor((Math.min(D.height,2.6))/0.38)));
+      area.small=B/(lev*2.7)*1.2*1.15;
+      add('Storage & racking',`Static shelving (${lev} levels)`,B,'locations',M('r_shelf'));
+      if(st==='shelf'){
+        const rate=R.p_cart*kPick, n=ceil(lph/rate);
+        add('MHE vehicles','Pick carts',n,'each',M('c_cart'));
+        labour('Each picking',lphAvg/rate,n); pickers=n;
+      } else {
+        const rate=R.p_amrAssist*kPick, n=ceil(lph/rate), bots=ceil(lph/(R.p_amrPickBot*kPick));
+        add('Automation & robotics','Collaborative pick AMRs',bots,'each',M('c_amrPick'));
+        labour('Each picking (AMR-assisted)',lphAvg/rate,n); pickers=n; robots.n+=bots; chargeVeh+=bots;
+      }
+    } else if(st==='acr'){
+      const h=Math.min(D.height,10);
+      if(D.height>10) warn.push('ACR racking capped at 10 m.');
+      const lev=Math.max(3,Math.floor((h-0.4)/0.35));
+      area.small=B/lev*0.5*1.2*1.15;
+      add('Storage & racking',`ACR racking (${lev} levels)`,B,'locations',M('r_acr'));
+      const bots=ceil(pres/R.p_acr); ports=ceil(lph/(R.p_acrPort*kPick))+1;
+      add('Automation & robotics','ACR tote robots',bots,'each',M('c_acr'));
+      add('Automation & robotics','ACR workstations',ports,'each',M('c_acrPort'));
+      labour('Port operators',lphAvg/(R.p_acrPort*kPick),ports); robots.n+=bots; pickers=ports; chargeVeh+=bots;
+    } else if(st==='shuttle'){
+      const lev=Math.max(4,Math.floor((D.height-0.6)/0.4));
+      area.small=B/lev*0.55*1.15;
+      add('Storage & racking',`Shuttle racking & lifts (${lev} levels)`,B,'locations',M('r_shut'));
+      const sh=ceil(pres/R.p_shut); ports=ceil(lph/(R.p_shutPort*kPick))+1;
+      add('Automation & robotics','Shuttle vehicles',sh,'each',M('c_shut'));
+      add('Automation & robotics','GTP workstations',ports,'each',M('c_shutPort'));
+      labour('Port operators',lphAvg/(R.p_shutPort*kPick),ports); pickers=ports; robots.auto=true;
+    } else if(st==='autostore'){
+      const perStack=Math.max(4,Math.min(Math.floor(R.h_asMax/binH),Math.floor((D.height-1.9)/binH)));
+      const stacks=ceil(B/perStack/0.97);
+      area.small=stacks*0.4*1.12;
+      add('Storage & racking',`AutoStore grid – ${D.binH} mm bins, ${perStack} high, ${stacks.toLocaleString()} stacks`,stacks*perStack,'bin cells',M('r_asGrid'));
+      add('Storage & racking','AutoStore bins',B,'bins',M('r_asBin'));
+      const bots=ceil(pres/R.p_asBot); ports=ceil(lph/(R.p_asPort*kPick))+R.n_asExtra;
+      add('Automation & robotics','AutoStore robots',bots,'each',M('c_asBot'));
+      add('Automation & robotics','AutoStore ports',ports,'each',M('c_asPort'));
+      labour('Port operators',lphAvg/(R.p_asPort*kPick)+R.n_asExtra*0.5,ports); pickers=ports; robots.n+=bots;
+      if(perStack<12) warn.push(`Only ${perStack} bins per stack at ${D.height} m – AutoStore gets expensive per bin below ~5 m.`);
+    }
+  }
+
+  /* ---- Transport ---- */
+  const tp=design.transport;
+  const tmAvg=D.horizMoves/hrs, tm=tmAvg*pk;
+  if(tp==='manual'&&D.horizMoves>0){
+    const per=3600/(2*D.horizDist/2.0+60)*0.75*kTruck, n=ceil(tm/per); mhe.n+=n;
+    add('MHE vehicles','Transport trucks (PPT / counterbalance)',n,'each',M('c_cb'));
+    labour('Horizontal pallet transport',tmAvg/per,n);
+  } else if(tp==='amr'&&D.horizMoves>0){
+    const per=3600/(2*D.horizDist/1.0+75)*0.85, n=ceil(tm/per)+1;
+    add('Automation & robotics','Pallet AMRs (incl. 1 spare)',n,'each',M('c_palAmr'));
+    add('Software & controls','AMR fleet manager',1,'lot',M('c_fleet'));
+    robots.n+=n; chargeVeh+=n;
+  }
+  if(design.small==='shelfamr' && tp!=='amr') add('Software & controls','AMR fleet manager',1,'lot',M('c_fleet'));
+
+  /* ---- Conveyors ---- */
+  const gtp=['acr','shuttle','autostore'].includes(st);
+  let cm=0,sp=0,dv=0;
+  if(design.convAuto){
+    if(gtp) cm+=ports*12+40;
+    if(st==='shelfamr') cm+=40;
+    if(design.sorter!=='none') cm+=60;
+    if(design.sorter==='crossbelt') sp=1;
+    dv=gtp?Math.ceil(ports/2):0;
+  } else { cm=design.conv.m; sp=design.conv.spirals; dv=design.conv.diverts; }
+  add('Conveyors & sortation','Tote / carton conveyor',cm,'m',M('c_conv'));
+  add('Conveyors & sortation','Spirals / verticals',sp,'each',M('c_spiral'));
+  add('Conveyors & sortation','Merges / diverts',dv,'each',M('c_divert'));
+  const convLen=cm;
+
+  /* ---- Sortation ---- */
+  const so=design.sorter, dests=D.destinations;
+  if(so==='none'){
+    labour('Manual sort & route build',ordAvg/R.p_manSort,ordPk/R.p_manSort);
+  } else if(so==='popup'){
+    if(itemsPk>R.p_popMax) warn.push(`Pop-up sorter: peak ${Math.round(itemsPk).toLocaleString()}/hr exceeds ~${R.p_popMax.toLocaleString()}/hr – consider two sorters or cross-belt.`);
+    add('Conveyors & sortation','Pop-up wheel sorter (base)',1,'lot',M('c_popBase'));
+    add('Conveyors & sortation','Pop-up wheel diverts',dests,'each',M('c_popDiv'));
+    labour('Sorter induct & chute clearing',ordAvg/R.p_sortOp,ordPk/R.p_sortOp);
+  } else if(so==='crossbelt'){
+    const cap=Math.max(3000,Math.ceil(itemsPk*1.15/500)*500);
+    add('Conveyors & sortation','Cross-belt sorter (base)',1,'lot',M('c_xbBase'));
+    add('Conveyors & sortation',`Cross-belt capacity (${cap.toLocaleString()}/hr)`,cap/1000,'k items/hr',M('c_xbRate'));
+    add('Conveyors & sortation','Cross-belt chutes',dests,'each',M('c_xbChute'));
+    labour('Sorter induct & chute clearing',ordAvg/R.p_sortOp,ordPk/R.p_sortOp);
+  }
+
+  /* ---- Common labour ---- */
+  labour('Receiving',D.palIn/hrs/R.p_recv,D.palIn/hrs*pk/R.p_recv);
+  labour('Packing',ordAvg/(R.p_pack*kPack),ordPk/(R.p_pack*kPack));
+
+  /* ---- Rollups ---- */
+  const sum=g=>L.filter(x=>x.g===g).reduce((a,b)=>a+b.cost,0);
+  const autoBase=sum('Automation & robotics')+sum('Conveyors & sortation');
+  const anyAuto=autoBase>0;
+  if(anyAuto){
+    add('Software & controls','WCS / integration',1,'lot',M('c_wcs'));
+    add('Software & controls','Controls & electrical',autoBase,'base',R.k_controls);
+    add('Services','Installation & commissioning (automation)',autoBase,'base',R.k_install*RG.svc/RG.eq);
+  }
+  const equip=GROUPS.slice(0,5).reduce((a,g)=>a+sum(g),0);
+  add('Services','Engineering & project management',equip,'base',R.k_eng*RG.svc/RG.eq);
+  const storeArea=(area.pallet||0)+(area.small||0);
+  // ---- zone areas for the layout ----
+  const packPk=ordPk/(R.p_pack*kPack);
+  const inDoors=Math.max(2,ceil(D.palIn*D.peakDay/hrs*R.k_arrive/R.p_doorIn));
+  const parcel=(D.orderProfile==='b2c'||D.orderProfile==='mixed');
+  const outDoors=Math.max(2,ceil(D.outLoads*D.peakDay/hrs*R.k_arrive/R.p_doorOut),parcel?ceil(dests/R.n_destDoor):0);
+  const Z={
+    inbound:inDoors*R.m_door*R.m_marsh, recv:inDoors*R.m_recv,
+    outbound:outDoors*R.m_door*R.m_marsh,
+    pallet:area.pallet||0, small:area.small||0,
+    gtp:gtp?ports*R.m_port:(st==='shelfamr'?150:0),
+    pack:ceil(packPk)*R.m_pack,
+    sort:so==='none'?dests*12:so==='popup'?(dests/2*2.2+25)*10:(dests/2*1.6+45)*16,
+  };
+  Z.misc=Object.values(Z).reduce((a,b)=>a+b,0)*R.k_misc+(mhe.n+chargeVeh)*R.m_charge;
+  const ctx={inDoors,outDoors,D,R,design,ports,convLen:cm,packStations:ceil(packPk)};
+  const plan=planLayout(Z,ctx,'auto');
+  const totArea=plan.area;
+  area.support=totArea-storeArea;
+  add('Fit-out','Building fit-out',totArea,'m²',R.r_fitout*fx*RG.svc);
+  const pre=GROUPS.slice(0,7).reduce((a,g)=>a+sum(g),0);
+  add('Contingency','Contingency',pre,'base',R.k_cont);
+  const byG=Object.fromEntries(GROUPS.map(g=>[g,sum(g)]));
+  const capex=Object.values(byG).reduce((a,b)=>a+b,0);
+
+  // labour
+  const avgHeads=lab.reduce((a,b)=>a+b.avg,0)*(1+R.k_indirect);
+  const pkHeads=lab.reduce((a,b)=>a+b.pk,0);
+  const labHrs=avgHeads*hrs*D.days;
+  const labCost=labHrs*R.c_lab;
+  const fte=Math.ceil(pkHeads*(1+R.k_indirect)*D.shifts*(1+R.k_absence));
+  const maint=(byG['Automation & robotics']+byG['Conveyors & sortation']+byG['Software & controls'])*R.k_maintAuto
+             + byG['Storage & racking']*R.k_maintRack + mhe.n*M('c_mheRun') + robots.n*M('c_botSw');
+  const opex=labCost+maint;
+  const ordersYr=D.orders*D.days;
+  return {L,lab,warn,area,totArea,byG,capex,labCost,maint,opex,avgHeads,pkHeads,fte,lph,lphAvg,pm,ordersYr,convLen,mhe:mhe.n,robots:robots.n,
+          perOrder:opex/ordersYr, automation:anyAuto, RG, Z, ctx, plan, inDoors, outDoors, ports};
+}
+
+
+/* ===================== LAYOUT ENGINE ===================== */
+const ZN={inbound:['Inbound dock & marshalling','#d6e4d2'],recv:['Receiving & QA','#e7efe0'],outbound:['Outbound marshalling','#d3e0ec'],
+  pallet:['Pallet storage','#dde5ef'],small:['Small-parts storage','#fbeec6'],gtp:['GTP ports / pick front','#f4cf6e'],
+  pack:['Packing','#e8def0'],sort:['Sortation','#f2d9cb'],misc:['Offices, welfare & charging','#e6e4de']};
+function chooseFlow(ctx){
+  const td=ctx.inDoors+ctx.outDoors, D=ctx.D;
+  if(td>16) return ['through',`${td} doors is too many for one wall – docks on opposite walls keep inbound and outbound traffic and yards apart.`];
+  if(D.orderProfile==='grocery'&&td>10) return ['through','Grocery volumes with separate inbound and despatch waves – through-flow avoids yard congestion.'];
+  return ['u',`${td} doors fit on one wall. U-flow shares the yard and gatehouse, lets doors swing between inbound and outbound, keeps fast movers close to both docks, and leaves the back wall free for expansion.`];
+}
+function planLayout(Z,ctx,pref){
+  const [autoFlow,why]=chooseFlow(ctx), flow=pref==='auto'||!pref?autoFlow:pref;
+  const R=ctx.R, pitch=R.m_door, A=Object.values(Z).reduce((a,b)=>a+b,0);
+  const rects=[]; let L=0,W=0;
+  if(flow==='through'){
+    const Y=Math.max(Math.max(ctx.inDoors,ctx.outDoors)*pitch+10,Math.sqrt(A/2.4));
+    let x=0;
+    const col=(items,minW=0)=>{const tot=items.reduce((a,i)=>a+i[1],0);if(tot<=0)return;const w=Math.max(minW,tot/Y);let y=0;items.forEach(([k,a])=>{if(a<=0)return;const h=Y*a/tot;rects.push({k,x,y,w,h});y+=h});x+=w};
+    col([['misc',Z.misc],['recv',Z.recv],['inbound',Z.inbound]],R.m_marsh+6);
+    col([['pallet',Z.pallet]]);
+    if(Z.small>0){rects.push({k:'small',x,y:0,w:Z.small/Y,h:Y});x+=Z.small/Y}
+    if(Z.gtp>0){const w=Math.max(6,Z.gtp/Y);rects.push({k:'gtp',x,y:0,w,h:Y});x+=w}
+    col([['pack',Z.pack],['sort',Z.sort]]);
+    col([['outbound',Z.outbound]],R.m_marsh);
+    L=x;W=Y;
+  } else {
+    const td=ctx.inDoors+ctx.outDoors;
+    const X=Math.max(td*pitch+16,Math.sqrt(A*1.7));
+    let y=0;
+    const sb=Z.pallet+Z.small+Z.gtp;
+    if(sb>0){
+      const h=sb/X, wp=X*Z.pallet/sb, ws=X-wp;
+      if(Z.pallet>0) rects.push({k:'pallet',x:0,y,w:wp,h});
+      if(ws>0){const hg=Z.gtp>0?Math.min(h*0.5,Math.max(6,Z.gtp/ws)):0;
+        if(Z.small>0) rects.push({k:'small',x:wp,y,w:ws,h:h-hg});
+        if(hg>0) rects.push({k:'gtp',x:wp,y:y+h-hg,w:ws,h:hg});}
+      y+=h;
+    }
+    const mid=[['recv',Z.recv],['misc',Z.misc],['pack',Z.pack],['sort',Z.sort]], mt=mid.reduce((a,i)=>a+i[1],0);
+    const hm=mt/X; let x=0; mid.forEach(([k,a])=>{const w=X*a/mt;rects.push({k,x,y,w,h:hm});x+=w}); y+=hm;
+    const wi=X*ctx.inDoors/td;
+    rects.push({k:'inbound',x:0,y,w:wi,h:R.m_marsh});
+    rects.push({k:'outbound',x:wi,y,w:X-wi,h:R.m_marsh});
+    y+=R.m_marsh; L=X;W=y;
+  }
+  return {flow,autoFlow,why,L,W,area:L*W,rects};
+}
+function drawPlan(plan,ctx,vw=400){
+  const s=vw/plan.L, vh=plan.W*s, d=ctx.design, R=ctx.R, D=ctx.D;
+  const pad=14, H=vh+pad*2+18;
+  const g=[], rc=k=>plan.rects.find(r=>r.k===k);
+  const T=(x,y)=>[pad+x*s,pad+y*s];
+  // zones
+  plan.rects.forEach(r=>{const [x,y]=T(r.x,r.y);g.push(`<rect x="${x}" y="${y}" width="${r.w*s}" height="${r.h*s}" fill="${ZN[r.k][1]}" stroke="#fff" stroke-width="1.5"/>`)});
+  const through=plan.flow==='through';
+  // pallet racking
+  const pr=rc('pallet');
+  if(pr){
+    const pt=d.pallet, mod={apr:[2.3,3.1],vna:[2.3,1.8],drivein:[10,3.5],pshut:[14,3.5],pasrs:[2.4,1.6]}[pt]||[2.3,3.1];
+    const end=pt==='vna'?4.5:4;
+    if(through){ // rows run along x
+      for(let yy=pr.y+1.5;yy+mod[0]<=pr.y+pr.h-1;yy+=mod[0]+mod[1]){const [x,y]=T(pr.x+end,yy);g.push(`<rect x="${x}" y="${y}" width="${Math.max(0,(pr.w-2*end)*s)}" height="${mod[0]*s}" fill="#1f3a5f" opacity=".75"/>`)}
+    } else {
+      for(let xx=pr.x+1.5;xx+mod[0]<=pr.x+pr.w-1;xx+=mod[0]+mod[1]){const [x,y]=T(xx,pr.y+2);g.push(`<rect x="${x}" y="${y}" width="${mod[0]*s}" height="${Math.max(0,(pr.h-2-end)*s)}" fill="#1f3a5f" opacity=".75"/>`)}
+    }
+  }
+  // small parts
+  const sr=rc('small');
+  if(sr){
+    const [x,y]=T(sr.x,sr.y), w=sr.w*s, h=sr.h*s;
+    if(d.small==='autostore'){
+      g.push(`<rect x="${x+2}" y="${y+2}" width="${Math.max(0,w-4)}" height="${Math.max(0,h-4)}" fill="url(#grid)" stroke="#b27c00" stroke-width="1"/>`);
+    } else {
+      const m={shelf:[1.2,1.2],shelfamr:[1.2,1.4],acr:[1.0,1.6],shuttle:[1.6,1.2]}[d.small]||[1.2,1.2];
+      if(through){for(let yy=sr.y+1;yy+m[0]<=sr.y+sr.h-1;yy+=m[0]+m[1]){const [a,b]=T(sr.x+2,yy);g.push(`<rect x="${a}" y="${b}" width="${Math.max(0,(sr.w-4)*s)}" height="${m[0]*s}" fill="#b27c00" opacity=".55"/>`)}}
+      else {for(let xx=sr.x+1;xx+m[0]<=sr.x+sr.w-1;xx+=m[0]+m[1]){const [a,b]=T(xx,sr.y+2);g.push(`<rect x="${a}" y="${b}" width="${m[0]*s}" height="${Math.max(0,(sr.h-4)*s)}" fill="#b27c00" opacity=".55"/>`)}}
+    }
+  }
+  // GTP ports
+  const gr=rc('gtp');
+  if(gr&&ctx.ports>0){
+    const n=Math.min(ctx.ports,60), sz=Math.max(3,Math.min(10,2.5*s));
+    for(let i=0;i<n;i++){
+      let cx,cy; if(through){cx=gr.x+gr.w/2;cy=gr.y+(i+0.5)*gr.h/n}else{cx=gr.x+(i+0.5)*gr.w/n;cy=gr.y+gr.h/2}
+      const [a,b]=T(cx,cy);g.push(`<rect x="${a-sz/2}" y="${b-sz/2}" width="${sz}" height="${sz}" fill="#1c1f24"/>`);
+    }
+  }
+  // sorter
+  const so=rc('sort');
+  if(so&&d.sorter!=='none'){
+    const [x,y]=T(so.x,so.y), w=so.w*s, h=so.h*s, m=Math.min(w,h)*0.18;
+    if(d.sorter==='crossbelt') g.push(`<rect x="${x+m}" y="${y+m}" width="${Math.max(0,w-2*m)}" height="${Math.max(0,h-2*m)}" rx="${Math.min(w,h)*0.3}" fill="none" stroke="#c4693d" stroke-width="3"/>`);
+    else { const cy=y+h/2; g.push(`<line x1="${x+m}" y1="${cy}" x2="${x+w-m}" y2="${cy}" stroke="#c4693d" stroke-width="3"/>`); const n=Math.min(D.destinations,24); for(let i=0;i<n;i++){const xx=x+m+(i+0.5)*(w-2*m)/n;g.push(`<line x1="${xx}" y1="${cy}" x2="${xx}" y2="${cy+(i%2?1:-1)*h*0.25}" stroke="#c4693d" stroke-width="1.5"/>`)} }
+  }
+  const ctr=r=>T(r.x+r.w/2,r.y+r.h/2);
+  // conveyor
+  if(ctx.convLen>0){
+    const pts=[gr||sr,rc('pack'),d.sorter!=='none'?so:null,rc('outbound')].filter(Boolean).map(ctr);
+    if(pts.length>1) g.push(`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#e08a00" stroke-width="2.5" stroke-linejoin="round"/>`);
+  }
+  // AMR route
+  if(d.transport==='amr'&&pr){const a=ctr(rc('inbound')),b=ctr(pr);g.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#2e7d4f" stroke-width="2.5" stroke-dasharray="6 4"/>`)}
+  // doors
+  const doors=(r,n,side)=>{if(!r)return;for(let i=0;i<n;i++){
+    if(side==='left'||side==='right'){const yy=r.y+(i+0.5)*r.h/n, [a,b]=T(side==='left'?r.x:r.x+r.w,yy);const dh=Math.max(2,R.m_door*0.75*s);g.push(`<rect x="${side==='left'?a-5:a}" y="${b-dh/2}" width="5" height="${dh}" fill="#1c1f24"/>`)}
+    else {const xx=r.x+(i+0.5)*r.w/n,[a,b]=T(xx,r.y+r.h);const dw=Math.max(2,R.m_door*0.75*s);g.push(`<rect x="${a-dw/2}" y="${b}" width="${dw}" height="5" fill="#1c1f24"/>`)}
+  }};
+  if(through){doors(rc('inbound'),ctx.inDoors,'left');doors(rc('outbound'),ctx.outDoors,'right')}
+  else {doors(rc('inbound'),ctx.inDoors,'bottom');doors(rc('outbound'),ctx.outDoors,'bottom')}
+  // building outline
+  g.push(`<rect x="${pad}" y="${pad}" width="${plan.L*s}" height="${vh}" fill="none" stroke="#1c1f24" stroke-width="2"/>`);
+  // labels
+  plan.rects.forEach(r=>{const w=r.w*s,h=r.h*s;if(w<70||h<26)return;const [cx,cy]=ctr(r);const short=ZN[r.k][0].replace(' & marshalling','').replace('Offices, welfare & charging','Offices & welfare').replace('GTP ports / pick front','GTP ports');
+    g.push(`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1c1f24" font-family="IBM Plex Sans,sans-serif" style="paint-order:stroke" stroke="rgba(255,255,255,.85)" stroke-width="3">${short}</text><text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="9.5" fill="#1c1f24" font-family="IBM Plex Mono,monospace" style="paint-order:stroke" stroke="rgba(255,255,255,.85)" stroke-width="3">${Math.round(r.w*r.h).toLocaleString()} m²</text>`)});
+  // scale bar
+  const sb=plan.L>150?50:20, by=pad+vh+14;
+  g.push(`<line x1="${pad}" y1="${by}" x2="${pad+sb*s}" y2="${by}" stroke="#1c1f24" stroke-width="2"/><text x="${pad+sb*s+5}" y="${by+4}" font-size="10" fill="#6a6f78" font-family="IBM Plex Mono,monospace">${sb} m</text>`);
+  g.push(`<text x="${pad+plan.L*s}" y="${by+4}" text-anchor="end" font-size="10" fill="#6a6f78" font-family="IBM Plex Mono,monospace">${Math.round(plan.L)} × ${Math.round(plan.W)} m</text>`);
+  const defs=`<defs><pattern id="grid" width="${Math.max(3,1.5*s)}" height="${Math.max(3,1.5*s)}" patternUnits="userSpaceOnUse"><rect width="100%" height="100%" fill="#f6dd95"/><path d="M0 0H${Math.max(3,1.5*s)}M0 0V${Math.max(3,1.5*s)}" stroke="#c99a1e" stroke-width=".6"/></pattern></defs>`;
+  return `<svg viewBox="0 0 ${vw+pad*2} ${H}" role="img" aria-label="Warehouse block layout">${defs}${g.join('')}</svg>`;
+}
+function layoutAdvice(r,plan){
+  const c=r.ctx,d=c.design,D=c.D,R=c.R,f=n=>Math.round(n).toLocaleString(),H=D.height,a=[];
+  const fl=plan.flow==='u'?'U-flow':'Through-flow';
+  a.push([`Flow: ${fl}`,plan.flow===plan.autoFlow?plan.why:`You've chosen ${fl}; the recommendation is ${plan.autoFlow==='u'?'U-flow':'through-flow'}: ${plan.why}`]);
+  const parcel=D.orderProfile==='b2c'||D.orderProfile==='mixed';
+  a.push(['Docks',`${r.inDoors} inbound doors (${f(D.palIn*D.peakDay)} pallets on a peak day, arrivals bunched ×${R.k_arrive}, ${R.p_doorIn} pallets/door/hr) and ${r.outDoors} outbound doors (${parcel?`${D.destinations} carrier destinations at ${R.n_destDoor} per door, `:''}${f(D.outLoads*D.peakDay)} loads on a peak day). ${R.m_door} m centres, ${R.m_marsh} m deep marshalling, levellers and shelters on every door.`]);
+  const pd={
+    apr:'Run aisles at right angles to the marshalling area so reach trucks drive straight in. Use 3.0–3.2 m aisles and put fast movers on the low levels nearest the docks.',
+    vna:`Run VNA aisles along the long side of the building to reduce aisle ends. Allow ~4.5 m transfer aisles at both ends with P&D stations facing receiving.${H>11?' Above ~11 m the aisles need a super-flat floor (FM2 / DM-2): check the slab survey early.':''}`,
+    drivein:'One SKU per lane and keep lanes short enough to empty within the product\'s shelf life, because drive-in is LIFO. Face the lanes onto a wide working aisle (≥3.5 m).',
+    pshut:'Load lanes from the receiving side and retrieve from the despatch side for FIFO. One carrier can move between lanes with the truck, so group lanes by SKU velocity.',
+    pasrs:H>=20?'At this height, look at a clad-rack (rack-supported) high bay next to the main shed, fed by pallet conveyor through a profile-check and weigh station.':`Stacker cranes need height to pay back; at ${H} m a pallet shuttle or VNA usually wins. A separate clad-rack high bay on the same plot is the alternative.`,
+  }[d.pallet];
+  if(pd&&D.palletPos>0) a.push([`Pallet storage – ${PALLET[d.pallet].n}`,pd]);
+  const g=plan.rects.find(x=>x.k==='small');
+  const sd={
+    autostore:`Put all ${r.ports} ports on the grid face that meets packing, so totes travel less than 10 m to pack. Keep a ~1 m service corridor round the grid and a robot service area at one end.${g?` Grid block roughly ${Math.round(g.w)} × ${Math.round(g.h)} m.`:''} Integrate building columns into the grid early in the design.`,
+    acr:`ACR racking needs a flat, level floor and ~1.5 m robot aisles. Put the ${r.ports} workstations on the front edge facing packing and the charging points at the rack ends.`,
+    shuttle:`Put the lifts and the front-end tote loop on the packing side; the loop length drives tote cycle time. Keep the ${r.ports} workstations tight to the lift faces.`,
+    shelfamr:'Use one-way aisles of ≥1.2 m so robots and pickers can pass, with robot induction and drop-off next to packing. Slot fast movers in the aisles nearest the drop-off.',
+    shelf:'Slot fast movers in the aisles nearest packing and use S-shaped pick routes. Keep cross-aisles every 20–25 m to cut walking.',
+  }[d.small];
+  if(sd&&D.toteLoc>0) a.push([`Small parts – ${SMALL[d.small].n}`,sd]);
+  if((d.small==='shelf'||d.small==='shelfamr')&&H>=7&&D.toteLoc>0){const t=H>=9?3:2;a.push(['Use the height',`Shelving only uses ~2.6 m of your ${H} m. A ${t}-tier pick mezzanine would cut the small-parts floor area by about ${Math.round((1-1/t)*100)}% (~${f(r.Z.small*(1-1/t))} m²). It adds lifts, stairs and fire protection to the cost.`])}
+  const pr=plan.rects.find(x=>x.k==='pallet');
+  if(pr&&g){const dist=Math.abs((pr.x+pr.w/2)-(g.x+g.w/2))+Math.abs((pr.y+pr.h/2)-(g.y+g.h/2));a.push(['Replenishment',`Put the small-parts decant / replen point on the side facing pallet reserve. Replen travel in this plan is ~${f(dist)} m one-way between zone centres.`])}
+  if(c.convLen>0) a.push(['Conveyors',`~${f(c.convLen)} m of tote / carton conveyor. Run it at high level or on a mezzanine where it crosses truck routes. Use fire-rated crossings through compartment walls and keep a maintenance walkway on one side.`]);
+  if(d.sorter!=='none') a.push([`Sortation – ${SORTER[d.sorter].n}`,`Put the sorter alongside the outbound marshalling so chutes or cages finish at the doors. Allow ~${f(r.Z.sort)} m² for ${D.destinations} destinations.${d.sorter==='crossbelt'?' Put the induction stations on the packing side.':''}`]);
+  else a.push(['Sortation – manual',`Build route cages in lanes that run straight to the doors (~${f(r.Z.sort)} m² for ${D.destinations} destinations).`]);
+  if(d.transport==='amr') a.push(['Pallet AMRs','Give AMRs dedicated routes or 3.5 m two-way aisles separate from manual trucks, with charging next to receiving. Avoid slopes and dock-plate transitions on the routes.']);
+  if(H>8) a.push(['Fire & building',`At ${H} m clear height, storage above ~7.5–9 m (or high-hazard goods) will usually need in-rack sprinklers – confirm against your insurer's standard (FM Global / LPC / NFPA 13) before fixing rack heights and flue spaces.${D.temp!=='ambient'?' Cold-store sprinklers need dry-pipe or pre-action systems.':''}`]);
+  if(D.temp==='frozen') a.push(['Temperature','Keep the frozen volume to a minimum: dense high-bay storage, a chilled anteroom for picking and marshalling, rapid-roll doors and sealed dock shelters.']);
+  a.push(['Expansion',plan.flow==='u'?'Keep the back wall, opposite the docks, as the expansion side so storage can grow without moving docks or process areas.':'Expand a through-flow building along one long side. Keep that side free of offices, plant and sprinkler tanks.']);
+  return a;
+}
+
+/* ===================== RECOMMENDATION ENGINE ===================== */
+function recommend(D,R){
+  const hrs=D.shifts*D.shiftHrs, pk=D.peakDay*D.peakHr;
+  const lph=D.orders*D.lpo/hrs*pk, pm=(D.palIn+D.palOut)/hrs*pk, sortPk=D.orders/hrs*pk;
+  const P=D.palletPos, depth=P/Math.max(1,D.palletSkus), H=D.height;
+  const T=D.productType, Z=D.productSize, O=D.orderProfile, C=D.temp, cold=C!=='ambient';
+  const f=n=>Math.round(n).toLocaleString();
+  const zone=(opts)=>Object.entries(opts).map(([k,fn])=>{const why=[];let sc=fn((d,t)=>{if(t&&d>0)why.push(['+',t]);else if(t&&d<0)why.push(['−',t]);return d});return {k,score:sc,why}}).sort((a,b)=>b.score-a.score);
+  // each option fn receives r(delta,reason) and returns score
+  const out={};
+  const waste=(k,r)=>{const mx=PALLET[k].maxH;return H>mx+3?r(-Math.min(30,Math.round((H-mx)*2)),`Racking tops out ~${mx} m – wastes ${Math.round(H-mx)} m of height`):0};
+  out.pallet = P<=0?[{k:'none',score:100,why:[['+','No pallet storage required']]}]:zone({
+    apr:r=>60+(P<4000?r(20,`Small store (${f(P)} positions) – flexibility beats density`):0)+(P>15000?r(-20,'Large store – wide aisles waste floor space'):0)+(pm<40?r(5,'Low pallet throughput'):0)+(H>11.5?r(-10,'Reach trucks can\'t use the full height'):0)+(cold?r(-15,'Cold-store space is expensive – favour density'):0)+(depth>12?r(-8,'Many pallets per SKU – deep lanes would be denser'):0)+waste('apr',r),
+    vna:r=>55+(P>=4000&&P<=25000?r(20,'Mid-size selective store'):0)+(H>=10&&H<=15?r(10,`${H} m suits VNA`):0)+(H<9?r(-20,'Too low to justify VNA'):0)+(pm>120?r(-15,`${f(pm)} moves/hr needs many turret trucks`):0)+(cold?r(-5,'Turret trucks in cold store need cab heating'):0)+(depth<4?r(5,'Low pallets per SKU – needs full selectivity'):0)+waste('vna',r),
+    drivein:r=>30+(depth>=15?r(35,`${depth.toFixed(0)} pallets per SKU – deep lanes fill well`):depth>=8?r(15,`${depth.toFixed(0)} pallets per SKU suits lanes`):0)+(depth<5?r(-30,'Too few pallets per SKU for deep lanes'):0)+(cold?r(10,'Density saves cold-store cost'):0)+(pm>60?r(-10,'Slow lane access at this throughput'):0)+waste('drivein',r),
+    pshut:r=>35+(depth>=8?r(30,`${depth.toFixed(0)} pallets per SKU suits deep lanes`):0)+(depth<5?r(-30,'Too few pallets per SKU for deep lanes'):0)+(C==='frozen'?r(20,'Standard choice for dense frozen storage'):C==='chilled'?r(12,'Density saves chilled space'):0)+(pm>40?r(10,'Faster lane access than drive-in'):0)+(['grocery','chilled','frozen'].includes(T)?r(5,'Common in FMCG and food'):0)+waste('pshut',r),
+    pasrs:r=>30+(H>=20?r(30,`${H} m high bay makes cranes pay back`):H<15?r(-25,`Cranes need ~20 m+ to pay back, building is ${H} m`):0)+(P>15000?r(15,`Large store (${f(P)} positions)`):0)+(pm>80?r(10,`High throughput (${f(pm)} moves/hr)`):0)+(D.shifts>=3?r(10,'24/7 operation'):0)+(C==='frozen'?r(20,'Lights-out frozen storage, no people in the cold'):0),
+  });
+  const B=D.toteLoc, big=Z==='large';
+  out.small = B<=0?[{k:'none',score:100,why:[['+','No small-parts storage required']]}]:zone({
+    shelf:r=>50+(lph<300?r(30,`Low pick rate (${f(lph)} lines/hr) – keep it manual`):0)+(lph>1200?r(-25,`${f(lph)} lines/hr means a large picking team`):0)+(big?r(15,'Handles bulky items'):0)+(O==='b2b'?r(8,'Case picking suits static locations'):0),
+    shelfamr:r=>50+(lph>=300&&lph<=2000?r(25,`${f(lph)} lines/hr suits collaborative robots`):0)+(lph>3000?r(-15,'Above ~3,000 lines/hr GTP is more efficient'):0)+(big?r(10,'Handles over-tote items'):0)+(D.peakDay>=1.6?r(10,`Peak factor ${D.peakDay} – rent extra robots for peak`):0)+(Z==='mixed'?r(5,'Copes with mixed item sizes'):0)+(H<6?r(5,'No height needed'):0),
+    acr:r=>40+(big?r(-40,'Items too big for totes'):0)+(H>=5&&H<=10.5?r(15,`${H} m suits ACR racking (up to ~10 m)`):0)+(lph>=500&&lph<=3000?r(15,'Line rate suits tote-robot GTP'):0)+(Z==='medium'?r(10,'Handles cartons as well as totes'):0)+(T==='it'?r(8,'Good for serialised IT stock in original cartons'):0)+(cold?r(-10,'Limited cold-rated options'):0),
+    shuttle:r=>35+(big?r(-40,'Items too big for totes'):0)+(lph>3500?r(30,`Very high line rate (${f(lph)}/hr)`):lph<1500?r(-20,'Throughput too low for shuttle capex'):0)+(['grocery','pharma','chilled'].includes(T)?r(10,'Sequencing and high throughput for this sector'):0)+(H>=10?r(5,'Uses height well'):0),
+    autostore:r=>40+(big?r(-45,'Items too big for bins'):0)+(Z==='small'?r(15,`Small items fit ${D.binH} mm bins well`):0)+(lph>=800&&lph<=6000?r(20,`Port picking fits ${f(lph)} lines/hr`):0)+(lph<400?r(-20,'Low line rate for cube capex'):0)+(H<4?r(-20,'Too low for a useful grid'):H>=5?r(5,'Height gives good bin density'):0)+(B>=10000?r(10,`Large range (${f(B)} bins) – density pays`):0)+(['fashion','beauty','electronics','spares','it','pharma'].includes(T)?r(10,'Proven for this product type'):0)+(C==='frozen'?r(-20,'Frozen grids are rare and costly'):C==='chilled'?r(-5,'Chilled grids possible at a premium'):0)+(O==='b2b'?r(-10,'Case picks rarely fit bins'):0),
+  });
+  const mv=D.horizMoves;
+  out.transport = mv<=0?[{k:'none',score:100,why:[['+','No horizontal pallet moves']]}]:zone({
+    manual:r=>55+(mv<100?r(25,`Only ${f(mv)} moves/day – too few for robots`):0)+(D.shifts<2?r(10,'Single shift'):0)+(D.horizDist<40?r(5,'Short travel'):0),
+    amr:r=>40+(mv/D.shifts>150?r(15,`${f(mv/D.shifts)} repetitive moves per shift`):0)+(D.horizDist>60?r(10,`Long travel (${D.horizDist} m)`):0)+(D.shifts>=2?r(10,'Multi-shift saves more drivers'):0)+(C==='frozen'?r(5,'Removes people from the cold'):0),
+  });
+  out.sorter = zone({
+    none:r=>50+(sortPk<600?r(35,`Low order rate (${f(sortPk)}/hr) – manual sort is fine`):0)+(sortPk>1500?r(-25,`${f(sortPk)} orders/hr is a lot to sort by hand`):0)+(D.destinations>40?r(-15,`${D.destinations} destinations is hard to sort manually`):0),
+    popup:r=>45+(sortPk>=600&&sortPk<=R.p_popMax?r(25,'Rate within pop-up wheel range'):0)+(sortPk>R.p_popMax?r(-40,`Above ~${f(R.p_popMax)}/hr capacity`):0)+(T==='fashion'||Z==='small'?r(-15,'Polybags and small items sort poorly on wheels'):0)+(O==='b2b'||O==='grocery'?r(10,'Cartons and totes sort well on wheels'):0),
+    crossbelt:r=>35+(sortPk>R.p_popMax*0.8?r(35,`High rate (${f(sortPk)}/hr)`):0)+(sortPk<1500?r(-25,'Rate too low for cross-belt capex'):0)+(T==='fashion'||Z==='small'?r(10,'Handles polybags and small items'):0)+(D.destinations>60?r(10,'Many destinations'):0)+(big?r(-20,'Bulky items need a different sorter'):0),
+  });
+  return out;
+}
+function recDesign(rc){return {pallet:rc.pallet[0].k,small:rc.small[0].k,transport:rc.transport[0].k,sorter:rc.sorter[0].k,convAuto:true,conv:{...DEF_DESIGN.conv}}}
+
+/* ===================== UI HELPERS ===================== */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const cur=()=>S.cur;
+function money(v,short=true){
+  const c=cur(); if(!isFinite(v)) return '–';
+  const a=Math.abs(v);
+  if(short){ if(a>=1e9) return c+(v/1e9).toFixed(2)+'bn'; if(a>=1e6) return c+(v/1e6).toFixed(a>=1e7?1:2)+'m'; if(a>=1e4) return c+Math.round(v/1e3)+'k'; }
+  return c+Math.round(v).toLocaleString();
+}
+const n0=v=>Math.round(v).toLocaleString();
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1600)}
+const NATIVE=(()=>{try{return window.RRNative&&RRNative.platform()==='android'}catch(e){return false}})();
+async function copy(t){if(NATIVE){try{RRNative.copy(t);toast('Copied');return}catch(e){}}try{await navigator.clipboard.writeText(t);toast('Copied')}catch(e){openSheet(t);toast('Copy from the box')}}
+function shareOrCopy(title,t){if(NATIVE){try{RRNative.share(title,t);return}catch(e){}}copy(t)}
+function persist(){store('whs_state',S);store('whs_t',Date.now());if(typeof scheduleSave==='function'&&last)scheduleSave()}
+
+/* ===================== BUILD INPUTS ===================== */
+function buildProfile(){
+  const g=$('#g-profile');g.innerHTML='';
+  PROFILE.forEach(([k,l,opts])=>{
+    const w=document.createElement('label');w.className='f';
+    w.innerHTML=`${l}<select>${Object.entries(opts).map(([v,t])=>`<option value="${v}" ${String(S.demand[k])===v?'selected':''}>${t}</option>`).join('')}</select>`;
+    w.querySelector('select').addEventListener('change',e=>{
+      S.demand[k]=e.target.value;
+      if(k==='region'){applyRegion(e.target.value)}
+      if(k==='productType'){const t=PRODUCT_TYPES[e.target.value];S.demand.productSize=t[1];S.demand.orderProfile=t[2];S.demand.temp=t[3];buildProfile();toast('Typical profile applied')}
+      refresh();
+    });
+    g.appendChild(w);
+  });
+}
+function applyRegion(k){const p=REGIONS[k];S.demand.region=k;if(p&&p.cur){S.cur=p.cur;S.fx=p.fx;S.rates.c_lab=p.lab}buildRates();toast(p.n+': currency, labour and install factors applied')}
+function buildDemand(){
+  buildProfile();
+  const tgt={storage:'#g-storage',flow:'#g-flow',ops:'#g-ops'};
+  Object.values(tgt).forEach(s=>$(s).innerHTML='');
+  DEMAND.forEach(([k,l,d,g,step])=>{
+    const w=document.createElement('label');w.className='f';
+    w.innerHTML=`${l}<input type="number" inputmode="decimal" step="${step}" min="0" value="${S.demand[k]}">`;
+    w.querySelector('input').addEventListener('input',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){S.demand[k]=v;refresh()}});
+    $(tgt[g]).appendChild(w);
+  });
+}
+function buildOpts(sel,defs,key){
+  const box=$(sel);box.innerHTML='';
+  Object.entries(defs).forEach(([k,o])=>{
+    const d=document.createElement('div');d.className='opt'+(S.design[key]===k?' on':'');
+    const rz=REC&&REC[{pallet:'pallet',small:'small',transport:'transport',sorter:'sorter'}[key]];
+    const star=rz&&rz[0].k===k?'<span class="star">★ Rec</span>':'';
+    d.innerHTML=`<span class="lvl ${o.l}">${LVL[o.l]}</span><b>${o.n}</b><small>${o.d||'&nbsp;'}</small>${star}`;
+    d.onclick=()=>{S.design[key]=k;buildDesign();refresh()};
+    box.appendChild(d);
+  });
+}
+function buildDesign(){
+  buildOpts('#o-pallet',PALLET,'pallet');buildOpts('#o-small',SMALL,'small');
+  buildOpts('#o-transport',TRANSPORT,'transport');buildOpts('#o-sorter',SORTER,'sorter');
+  $('#convAuto').checked=S.design.convAuto;
+  const g=$('#g-conv');g.innerHTML='';
+  [['m','Conveyor length (m)',10],['spirals','Spirals / verticals',1],['diverts','Merges / diverts',1]].forEach(([k,l,st])=>{
+    const w=document.createElement('label');w.className='f';
+    w.innerHTML=`${l}<input type="number" step="${st}" min="0" value="${S.design.conv[k]}" ${S.design.convAuto?'disabled':''}>`;
+    w.querySelector('input').addEventListener('input',e=>{S.design.conv[k]=parseFloat(e.target.value)||0;refresh()});
+    g.appendChild(w);
+  });
+}
+$('#convAuto').addEventListener('change',e=>{
+  S.design.convAuto=e.target.checked;
+  if(!e.target.checked){const r=calc(S.design,S.demand,S.rates);S.design.conv.m=Math.round(r.convLen);}
+  buildDesign();refresh();
+});
+function buildRates(){
+  const t=$('#rateTbl');let h='<tr><th>Item</th><th class="r">Value</th><th>Unit</th></tr>';
+  RATES.forEach(r=>{
+    if(r[0]==='G'){h+=`<tr class="grp"><td colspan="3">${r[1]}</td></tr>`;return}
+    const [k,l,d,u,m]=r, v=S.rates[k], sr=RATE_SRC[k];
+    const refs=sr&&sr[2]?' '+sr[2].split(',').map(id=>`<a href="#src-${id}" onclick="document.getElementById('src-${id}').scrollIntoView({behavior:'smooth'});return false">[${id}]</a>`).join(''):'';
+    const basis=sr?`<span class="basis">${sr[1]}${refs}</span>`:(String(k).startsWith('p_')||String(k).startsWith('n_')||String(k).startsWith('m_')||String(k).startsWith('h_')?'<span class="basis">Planning assumption (industry rule of thumb) – tune to your site data</span>':'');
+    const conf=sr?`<span class="cf ${sr[0]}">${{H:'High',M:'Med',L:'Low'}[sr[0]]}</span>`:'';
+    h+=`<tr><td>${l}${conf}${basis}</td><td class="r"><input data-k="${k}" type="number" step="any" value="${v}" class="${v!==d&&!(k==='c_lab'&&v===(regionOf(S.demand).lab))?'chg':''}"></td><td style="color:var(--mute);font-size:12px">${m===1?'£':m===2?S.cur:''}${u}</td></tr>`;
+  });
+  t.innerHTML=h;
+  t.querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{
+    const k=e.target.dataset.k,v=parseFloat(e.target.value);
+    if(!isNaN(v)){S.rates[k]=v;e.target.classList.toggle('chg',v!==DEF_RATES[k]);refresh(false)}
+  }));
+  $('#cur').value=S.cur;$('#fx').value=S.fx;
+  const p=regionOf(S.demand), rf=regionFactors(S.demand,S.rates);
+  $('#regInfo').innerHTML=`<b>${p.n}</b> · ${S.cur} at ${S.fx} per £1 [S22] · labour ${S.cur}${S.rates.c_lab}/hr · equipment ×${rf.eq.toFixed(2)} · installation & services ×${rf.svc.toFixed(2)}<span class="basis">${p.why}. Installation factor = 60% fixed (vendor crews, materials) + 40% scaled by local labour cost vs UK.</span>`;
+  $('#srcList').innerHTML=Object.entries(SOURCES).map(([id,[t,u]])=>`<li id="src-${id}"><b>${id}</b> <a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('');
+}
+$('#cur').addEventListener('change',e=>{S.cur=e.target.value;buildRates();refresh()});
+$('#fx').addEventListener('input',e=>{const v=parseFloat(e.target.value);if(v>0){S.fx=v;refresh()}});
+$('#projName').addEventListener('input',e=>{S.name=e.target.value;persist()});
+
+/* ===================== RENDER ===================== */
+let last=null, REC=null;
+function refresh(){
+  const prevRec=REC&&JSON.stringify(recDesign(REC));
+  REC=recommend(S.demand,S.rates); renderRec();
+  if(prevRec!==JSON.stringify(recDesign(REC))) buildDesign();
+  const r=calc(S.design,S.demand,S.rates); last=r;
+  $('#t-pal').textContent=PALLET[S.design.pallet].n; $('#t-sm').textContent=SMALL[S.design.small].n;
+  $('#convNote').textContent=S.design.convAuto?`Auto estimate: ${n0(r.convLen)} m of tote/carton conveyor.`:'';
+  renderResults(r); renderCompare(); renderLayoutTab(); persist();
+}
+function renderRec(){
+  const D=S.demand, names={pallet:['Pallet storage',PALLET],small:['Small parts & picking',SMALL],transport:['Pallet transport',TRANSPORT],sorter:['Sortation',SORTER]};
+  $('#recHint').textContent=`Scored for ${PRODUCT_TYPES[D.productType][0].toLowerCase()}, ${D.productSize} items, ${D.temp}, ${D.height} m clear height and your volumes. Rule-based guidance to shortlist options before you model them, not a supplier selection.`;
+  $('#recBox').innerHTML=Object.entries(names).map(([z,[lbl,defs]])=>{
+    const r=REC[z], b=r[0], alt=r[1], fit=Math.max(0,Math.min(100,b.score));
+    const cls=fit>=70?'':fit>=50?'mid':'low';
+    const same=S.design[z]===b.k;
+    return `<div class="recrow"><div class="z">${lbl}</div>
+      <div class="w">${defs[b.k].n} <span class="fit ${cls}">fit ${fit}</span>${same?'<span class="fit" style="background:#eef2f7;color:var(--navy)">in your design</span>':''}</div>
+      <ul>${b.why.filter(w=>w[0]==='+').slice(0,3).map(w=>`<li>${w[1]}</li>`).join('')||'<li>Best of the available options on these inputs</li>'}${b.why.filter(w=>w[0]==='−').slice(0,1).map(w=>`<li style="color:var(--bad)">Watch: ${w[1]}</li>`).join('')}</ul>
+      ${alt?`<div class="alt">Runner-up: <b>${defs[alt.k].n}</b> (fit ${Math.max(0,Math.min(100,alt.score))})${alt.why.find(w=>w[0]==='+')?' – '+alt.why.find(w=>w[0]==='+')[1].charAt(0).toLowerCase()+alt.why.find(w=>w[0]==='+')[1].slice(1):''}</div>`:''}
+    </div>`;
+  }).join('');
+}
+$('#applyRec').onclick=()=>{S.design=recDesign(REC);buildDesign();refresh();toast('Recommended design applied');go('results')};
+function renderResults(r){
+  $('#warns').innerHTML=r.warn.map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
+  const k=[
+    ['Total capex',money(r.capex),`concept range ${money(r.capex*0.75)}–${money(r.capex*1.4)}`,1],
+    ['Footprint',n0(r.totArea)+' m²',`storage ${n0(r.totArea-r.area.support)} m²`],
+    ['Peak heads / shift',n0(r.pkHeads),`${n0(r.fte)} FTE headcount`],
+    ['Annual opex',money(r.opex),`labour ${money(r.labCost)}`],
+    ['Opex per order',S.cur+r.perOrder.toFixed(2),`${regionOf(S.demand).n} · ${n0(r.ordersYr)} orders/yr`],
+    ['Design pick rate',n0(r.lph)+' /hr',`lines at peak hour`],
+  ];
+  $('#kpis').innerHTML=k.map(([l,v,s,h])=>`<div class="kpi ${h?'hero':''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  // bar
+  $('#capBar').innerHTML=GROUPS.map((g,i)=>r.byG[g]>0?`<div title="${g}" style="width:${r.byG[g]/r.capex*100}%;background:${GCOL[i]}"></div>`:'').join('');
+  $('#capLeg').innerHTML=GROUPS.map((g,i)=>r.byG[g]>0?`<span><i style="background:${GCOL[i]}"></i>${g} <b class="num">${money(r.byG[g])}</b></span>`:'').join('');
+  // labour
+  let lh='<tr><th>Function</th><th class="r">Avg heads</th><th class="r">Peak heads</th></tr>';
+  r.lab.forEach(l=>lh+=`<tr><td>${l.fn}</td><td class="r num">${l.avg.toFixed(1)}</td><td class="r num">${l.pk}</td></tr>`);
+  lh+=`<tr><td style="color:var(--mute)">Indirect uplift ${Math.round(S.rates.k_indirect*100)}%</td><td></td><td></td></tr>`;
+  lh+=`<tr class="tot"><td>Per shift</td><td class="r num">${r.avgHeads.toFixed(1)}</td><td class="r num">${r.pkHeads}</td></tr>`;
+  lh+=`<tr><td colspan="3" style="color:var(--mute);font-size:12px">${n0(r.fte)} FTE headcount across ${S.demand.shifts} shift(s) incl. indirect and ${Math.round(S.rates.k_absence*100)}% absence cover. Annual labour ${money(r.labCost,false)}.</td></tr>`;
+  $('#labTbl').innerHTML=lh;
+  // boq
+  let b='<tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Cost</th></tr>';
+  GROUPS.forEach(g=>{
+    const rows=r.L.filter(x=>x.g===g); if(!rows.length) return;
+    b+=`<tr class="grp"><td colspan="3">${g}</td><td class="r num">${money(r.byG[g])}</td></tr>`;
+    rows.forEach(x=>{
+      const pct=x.unit==='base';
+      b+=`<tr><td>${x.item}</td><td class="r num">${pct?money(x.qty):(x.qty<10&&x.qty%1?x.qty.toFixed(1):n0(x.qty))+' <span style="color:var(--mute);font-size:11px">'+x.unit+'</span>'}</td><td class="r num">${pct?(x.rate*100).toFixed(0)+'%':money(x.rate,false)}</td><td class="r num">${money(x.cost)}</td></tr>`;
+    });
+  });
+  b+=`<tr class="tot"><td colspan="3">Total capex</td><td class="r num">${money(r.capex)}</td></tr>`;
+  $('#boq').innerHTML=b;
+  renderLayout(r);
+}
+function renderLayout(r){
+  $('#layoutMiniHint').textContent=`${r.plan.flow==='u'?'U-flow':'Through-flow'}, ${Math.round(r.plan.L)} × ${Math.round(r.plan.W)} m, ${r.inDoors} inbound + ${r.outDoors} outbound doors.`;
+  $('#layout').innerHTML=drawPlan(r.plan,r.ctx);
+}
+function renderLayoutTab(){
+  const sel=S.layout||{for:'mine',flow:'auto'}, opts={mine:'Your design',rec:'Recommended design'};
+  Object.keys(concepts(S.demand,S.rates)).forEach(k=>opts[k]=k+' concept');
+  $('#layFor').innerHTML=Object.entries(opts).map(([k,v])=>`<option value="${k}" ${sel.for===k?'selected':''}>${v}</option>`).join('');
+  $('#layFlow').value=sel.flow;
+  const design=sel.for==='mine'?S.design:sel.for==='rec'?recDesign(REC):concepts(S.demand,S.rates)[sel.for];
+  const r=sel.for==='mine'?last:calc(design,S.demand,S.rates);
+  const plan=planLayout(r.Z,r.ctx,sel.flow);
+  const k=[['Building',`${Math.round(plan.L)} × ${Math.round(plan.W)} m`,`${plan.flow==='u'?'U-flow':'Through-flow'}`,1],['Footprint',Math.round(plan.area).toLocaleString()+' m²',`${Math.round((r.Z.pallet+r.Z.small)/plan.area*100)}% storage`],['Dock doors',`${r.inDoors} in · ${r.outDoors} out`,`${S.rates.m_door} m centres`],['Clear height',S.demand.height+' m',PALLET[design.pallet].n]];
+  $('#layKpis').innerHTML=k.map(([l,v,s,h])=>`<div class="kpi ${h?'hero':''}"><div class="l">${l}</div><div class="v" style="font-size:17px">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('#laySvg').innerHTML=drawPlan(plan,r.ctx);
+  const leg=[...new Set(plan.rects.map(x=>x.k))].map(z=>`<span><i style="background:${ZN[z][1]}"></i>${ZN[z][0]}</span>`);
+  leg.push('<span><i style="background:#1f3a5f"></i>Pallet racking</span>');
+  if(r.ctx.convLen>0) leg.push('<span><i style="background:#e08a00"></i>Conveyor</span>');
+  if(design.transport==='amr') leg.push('<span><i style="background:#2e7d4f"></i>AMR route</span>');
+  leg.push('<span><i style="background:#1c1f24"></i>Dock doors / ports</span>');
+  $('#layLeg').innerHTML=leg.join('');
+  $('#layRecs').innerHTML=layoutAdvice(r,plan).map(([t,b])=>`<li><b>${t}</b>${b}</li>`).join('');
+  let h='<tr><th>Zone</th><th class="r">Area m²</th><th class="r">Size m</th></tr>';
+  plan.rects.forEach(x=>h+=`<tr><td>${ZN[x.k][0]}</td><td class="r num">${Math.round(x.w*x.h).toLocaleString()}</td><td class="r num">${Math.round(x.w)} × ${Math.round(x.h)}</td></tr>`);
+  h+=`<tr class="tot"><td>Building</td><td class="r num">${Math.round(plan.area).toLocaleString()}</td><td class="r num">${Math.round(plan.L)} × ${Math.round(plan.W)}</td></tr>`;
+  $('#layTbl').innerHTML=h;
+}
+$('#layFor').addEventListener('change',e=>{S.layout={...(S.layout||{flow:'auto'}),for:e.target.value};refresh()});
+$('#layFlow').addEventListener('change',e=>{S.layout={...(S.layout||{for:'mine'}),flow:e.target.value};refresh()});
+function renderCompare(){
+  const sets=Object.entries(concepts(S.demand,S.rates)).map(([n,d])=>[n,calc(d,S.demand,S.rates),d]);
+  const rd=recDesign(REC); sets.push(['Recommended',calc(rd,S.demand,S.rates),rd]);
+  sets.push(['Your design',last,S.design]);
+  const yrs=S.rates.n_tco, base=sets[0][1];
+  $('#tcoYrsLbl').textContent=yrs;
+  const desc=d=>`${PALLET[d.pallet].n}<br>${SMALL[d.small].n}<br>${TRANSPORT[d.transport].n}<br>${SORTER[d.sorter].n}`;
+  const rows=[
+    ['Concept',s=>`<span style="font-size:12px">${desc(s[2])}</span>`],
+    ['Capex',s=>money(s[1].capex),'min','capex'],
+    ['Footprint m²',s=>n0(s[1].totArea),'min','totArea'],
+    ['Peak heads / shift',s=>n0(s[1].pkHeads),'min','pkHeads'],
+    ['FTE',s=>n0(s[1].fte),'min','fte'],
+    ['Annual labour',s=>money(s[1].labCost),'min','labCost'],
+    ['Maintenance & running',s=>money(s[1].maint),'min','maint'],
+    ['Annual opex',s=>money(s[1].opex),'min','opex'],
+    ['Opex / order',s=>S.cur+s[1].perOrder.toFixed(2),'min','perOrder'],
+    [`${yrs}-yr TCO`,s=>money(s[1].capex+s[1].opex*yrs),'min',s=>s[1].capex+s[1].opex*yrs],
+    ['Payback vs Manual',s=>{const dc=s[1].capex-base.capex, ds=base.opex-s[1].opex; if(s===sets[0])return '–'; if(ds<=0) return 'none'; return (dc/ds).toFixed(1)+' yrs'}],
+  ];
+  let h='<tr><th></th>'+sets.map(s=>`<th class="r">${s[0]}</th>`).join('')+'</tr>';
+  rows.forEach(([l,f,best,key],ri)=>{ if(ri===10) key=1;
+    let bi=-1;
+    if(best){const vals=sets.map(s=>typeof key==='function'?key(s):s[1][key]);bi=vals.indexOf(Math.min(...vals));}
+    h+=`<tr><td style="font-weight:600">${l}</td>`+sets.map((s,i)=>`<td class="r ${key?'num':''} ${i===bi?'best':''}">${f(s)}</td>`).join('')+'</tr>';
+  });
+  $('#cmpTbl').innerHTML=h;
+  const hb=(sel,fn)=>{const mx=Math.max(...sets.map(fn));$(sel).innerHTML=sets.map((s,i)=>`<div class="row"><span class="t">${s[0]}</span><div class="bar" style="background:#f0efe9"><div style="width:${fn(s)/mx*100}%;background:${['var(--c7)','var(--c2)','var(--c3)','var(--c4)','var(--c1)'][i]}"></div></div><span class="v">${money(fn(s))}</span></div>`).join('')};
+  hb('#cmpCap',s=>s[1].capex); hb('#cmpOpex',s=>s[1].opex);
+  // TCO line chart
+  const cols=['#9aa3ad','#3f7cac','#e0a000','#5f8f64','#1f3a5f'];
+  const W=400,H=200,pl=48,pb=24,pt=10,pr=10;
+  const mx=Math.max(...sets.map(s=>s[1].capex+s[1].opex*yrs));
+  const X=y=>pl+(W-pl-pr)*y/yrs, Y=v=>pt+(H-pt-pb)*(1-v/mx);
+  let g='';
+  for(let i=0;i<=4;i++){const v=mx*i/4;g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e2e0d9"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#6a6f78" font-family="IBM Plex Mono">${money(v)}</text>`}
+  for(let y=0;y<=yrs;y++) g+=`<text x="${X(y)}" y="${H-6}" text-anchor="middle" font-size="11" fill="#6a6f78" font-family="IBM Plex Mono">${y}</text>`;
+  sets.forEach((s,i)=>{const pts=[];for(let y=0;y<=yrs;y++)pts.push(`${X(y)},${Y(s[1].capex+s[1].opex*y)}`);g+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${cols[i]}" stroke-width="${i===4?3:2}" ${i===4?'stroke-dasharray="6 4"':''}/>`});
+  $('#tcoChart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Cumulative cost">${g}</svg>`;
+  $('#tcoLeg').innerHTML=sets.map((s,i)=>`<span><i style="background:${cols[i]}"></i>${s[0]}</span>`).join('');
+}
+
+/* ===================== PROJECTS (cloud db, local fallback) ===================== */
+function applyState(st){S=Object.assign(fresh(),st);S.demand={...DEF_DEMAND,...st.demand};S.rates={...DEF_RATES,...st.rates};S.design={...DEF_DESIGN,...st.design,conv:{...DEF_DESIGN.conv,...(st.design||{}).conv}};S.layout={for:'mine',flow:'auto',...(st.layout||{})};init()}
+function openSheet(t){$('#jsonBox').value=t;$('#sheet').classList.add('on')}
+$('#exportJson').onclick=()=>openSheet(JSON.stringify(S,null,1));
+$('#copyJson').onclick=()=>copy($('#jsonBox').value);
+$('#importJson').onclick=()=>{try{const st=JSON.parse($('#jsonBox').value);CUR_ID=uid();store('whs_cur',CUR_ID);applyState(st);$('#sheet').classList.remove('on');toast('Imported as a new project');saveNow()}catch(e){toast('That text isn\'t a valid model')}};
+$('#closeSheet').onclick=()=>$('#sheet').classList.remove('on');
+$('#resetRates').onclick=()=>{S.rates={...DEF_RATES};const p=regionOf(S.demand);if(p.cur){S.fx=p.fx;S.cur=p.cur;S.rates.c_lab=p.lab}buildRates();refresh();toast('Rates reset')};
+
+const PROJ={mode:'pending',coll:null,list:[],keys:{},chain:Promise.resolve(),timer:null,dirty:false,ready:false};
+let CUR_ID=load('whs_cur');
+const uid=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function stable(o){if(Array.isArray(o))return '['+o.map(stable).join(',')+']';if(o&&typeof o==='object')return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}';return JSON.stringify(o)}
+const keyOf=(name,st)=>stable({n:name||'',s:st});
+function projBody(){const r=last;return {name:S.name||'Untitled project',updated:new Date().toISOString(),
+  summary:{capex:Math.round(r.capex),opex:Math.round(r.opex),area:Math.round(r.totArea),fte:r.fte,cur:S.cur,region:regionOf(S.demand).n,product:PRODUCT_TYPES[S.demand.productType][0],
+  design:[PALLET[S.design.pallet].n,SMALL[S.design.small].n,TRANSPORT[S.design.transport].n,SORTER[S.design.sorter].n].join(' · ')},
+  state:JSON.parse(JSON.stringify(S))}}
+const localMap=()=>load('whs_projects')||{};
+function setSave(st){const e=$('#saveState');e.className='ss'+(st==='saved'?' ok':st==='err'?' err':'');
+  e.textContent=st==='pending'?'Saving…':st==='saved'?(PROJ.mode==='cloud'?'✓ Saved':'✓ Saved on this device'):st==='err'?'Not saved':'Connecting…'}
+function scheduleSave(){if(!CUR_ID){CUR_ID=uid();store('whs_cur',CUR_ID)}PROJ.dirty=true;clearTimeout(PROJ.timer);PROJ.timer=setTimeout(saveNow,1200)}
+function saveNow(){
+  if(PROJ.mode==='pending'||!last) return;
+  if(!CUR_ID){CUR_ID=uid();store('whs_cur',CUR_ID)}
+  const id=CUR_ID, k=keyOf(S.name||'Untitled project',S);
+  if(PROJ.keys[id]===k){PROJ.dirty=false;setSave('saved');return}
+  const body=projBody(); setSave('pending');
+  PROJ.chain=PROJ.chain.then(async()=>{
+    try{
+      if(PROJ.mode==='cloud') await PROJ.coll.doc(id).set(body);
+      else {const m=localMap();m[id]=body;store('whs_projects',m);PROJ.list=Object.entries(m).map(([i,v])=>({id:i,...v}));renderProjects()}
+      PROJ.keys[id]=k;PROJ.dirty=false;setSave('saved');
+    }catch(e){
+      const m=localMap();m[id]=body;store('whs_projects',m);setSave('err');
+      if(e&&e.code==='quota_exceeded') toast('Project storage is full – delete old projects');
+      else if(e&&e.code==='unavailable'){setTimeout(()=>{PROJ.keys[id]=null;saveNow()},2000+Math.random()*2000)}
+    }
+  });
+}
+function renderProjects(){
+  const l=[...PROJ.list].sort((a,b)=>String(b.updated||'').localeCompare(String(a.updated||'')));
+  $('#storeHint').textContent=PROJ.mode==='cloud'?`${l.length} project${l.length===1?'':'s'}, saved automatically to your account. They're private to you and open on any device where you're signed in.`:PROJ.mode==='local'?`${l.length} project${l.length===1?'':'s'}, saved automatically on this ${NATIVE?'phone. Use Export to back up or move a project':"browser. Nothing is sent to a server. Use Export to back up a project or move it to another device"}.`:'Connecting to project storage…';
+  $('#projList').innerHTML=l.map(p=>{const m=p.summary||{},c=m.cur||S.cur,mo=v=>v==null?'–':(v>=1e6?c+(v/1e6).toFixed(2)+'m':c+Math.round(v/1e3)+'k');
+    const dt=p.updated?new Date(p.updated).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    return `<div class="pcard ${p.id===CUR_ID?'cur':''}"><div class="nm">${esc(p.name||'Untitled project')}${p.id===CUR_ID?' <span class="fit" style="background:#eef2f7;color:var(--navy)">open</span>':''}</div>
+    <div class="meta">${esc(m.product||'')}${m.region?' · '+esc(m.region):''} · ${dt}</div><div class="meta">${esc(m.design||'')}</div>
+    <div class="fig"><span><b>Capex</b>${mo(m.capex)}</span><span><b>Opex</b>${mo(m.opex)}/yr</span><span><b>Area</b>${(m.area||0).toLocaleString()} m²</span><span><b>FTE</b>${m.fte??'–'}</span></div>
+    <div class="btns">${p.id===CUR_ID?'':`<button class="btn d" data-open="${p.id}">Open</button>`}<button class="btn" data-del="${p.id}">Delete</button></div></div>`}).join('')||'<p class="hint">No projects yet. Your current work is saved as one automatically.</p>';
+  $$('[data-open]').forEach(b=>b.onclick=()=>openProject(b.dataset.open));
+  $$('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.armed){delProject(b.dataset.del)}else{b.dataset.armed=1;b.textContent='Tap again to delete';b.style.background='#f8e1dc';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Delete';b.style.background=''}},3000)}});
+}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function openProject(id){
+  if(PROJ.dirty) saveNow();
+  const p=PROJ.list.find(x=>x.id===id); if(!p||!p.state) return toast('Could not open that project');
+  CUR_ID=id;store('whs_cur',id);applyState(p.state);PROJ.keys[id]=keyOf(S.name||'Untitled project',S);setSave('saved');renderProjects();toast('Opened '+(p.name||'project'));go('results');
+}
+async function delProject(id){
+  try{
+    if(PROJ.mode==='cloud') await PROJ.coll.doc(id).delete();
+    else {const m=localMap();delete m[id];store('whs_projects',m);PROJ.list=Object.entries(m).map(([i,v])=>({id:i,...v}))}
+    if(id===CUR_ID){CUR_ID=null;store('whs_cur',null)}
+    renderProjects();toast('Deleted');
+  }catch(e){toast('Delete failed – try again')}
+}
+$('#newProj').onclick=()=>{if(PROJ.dirty)saveNow();const keep={rates:S.rates,cur:S.cur,fx:S.fx};CUR_ID=uid();store('whs_cur',CUR_ID);S={...fresh(),...keep,name:'New project'};init();saveNow();toast('New project – rates carried over');go('demand');setTimeout(()=>$('#projName').focus(),300)};
+$('#dupProj').onclick=()=>{if(PROJ.dirty)saveNow();CUR_ID=uid();store('whs_cur',CUR_ID);S.name=(S.name||'Untitled project')+' (copy)';$('#projName').value=S.name;saveNow();renderProjects();toast('Duplicated')};
+
+async function migrateLocal(){
+  // move any device-only projects and old saved scenarios into account storage, once
+  if(load('whs_migrated')) return;
+  const m=localMap(), old=load('whs_scen')||[];
+  for(const [id,b] of Object.entries(m)){ if(!PROJ.list.find(p=>p.id===id)){ try{await PROJ.coll.doc(id).set(b)}catch(e){} } }
+  for(const sc of old){ try{ const st=sc.state; await PROJ.coll.doc(uid()).set({name:sc.name||'Saved scenario',updated:new Date().toISOString(),summary:{capex:sc.capex,cur:st.cur||'£',product:(PRODUCT_TYPES[(st.demand||{}).productType]||['Apparel & footwear'])[0],design:''},state:st}) }catch(e){} }
+  store('whs_migrated',1);
+}
+function onReady(){
+  if(PROJ.ready) return; PROJ.ready=true;
+  const cur=PROJ.list.find(p=>p.id===CUR_ID);
+  if(cur&&cur.state){
+    const localT=load('whs_t')||0, cloudT=Date.parse(cur.updated||0)||0;
+    if(cloudT>localT+2000){ applyState(cur.state); toast('Loaded latest version of '+(cur.name||'project')) }
+    PROJ.keys[CUR_ID]=keyOf(cur.name,cur.state);
+  }
+  saveNow(); renderProjects();
+}
+async function initStore(){
+  const timer=setTimeout(()=>{if(!PROJ.ready) localMode()},10000);
+  try{
+    const c=window.claude; if(!c||!c.use) throw 0;
+    const db=await c.use('db'); if(!db) throw 0;
+    const user=await c.use('user');
+    let owner=false; try{owner=user?!!(await user.isOwner()):false}catch(e){}
+    let path='projects';
+    if(!owner){const id=user?await user.id():null; if(!id) throw 0; path='data/users/'+id}
+    PROJ.coll=db.collection(path); PROJ.mode='cloud'; setSave('pending');
+    PROJ.coll.onSnapshot(async snap=>{
+      PROJ.list=snap.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()}));
+      renderProjects();
+      if(!snap.metadata.fromCache&&!PROJ.ready){clearTimeout(timer);await migrateLocal();onReady()}
+    },err=>{clearTimeout(timer);if(!PROJ.ready)localMode()});
+  }catch(e){clearTimeout(timer);localMode()}
+}
+function localMode(){
+  if(PROJ.ready) return;
+  PROJ.mode='local';
+  const m=localMap(), old=load('whs_scen')||[];
+  if(old.length&&!load('whs_migrated_local')){old.forEach(sc=>{m[uid()]={name:sc.name||'Saved scenario',updated:new Date().toISOString(),summary:{capex:sc.capex,cur:sc.state.cur},state:sc.state}});store('whs_projects',m);store('whs_migrated_local',1)}
+  PROJ.list=Object.entries(m).map(([i,v])=>({id:i,...v}));
+  onReady();
+}
+$('#copyCsv').onclick=()=>{
+  const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+  const rows=[['Group','Item','Qty','Unit','Rate','Cost ('+S.cur+')']].concat(last.L.map(x=>[x.g,x.item,+x.qty.toFixed(2),x.unit,x.unit==='base'?x.rate:+x.rate.toFixed(2),Math.round(x.cost)]));
+  rows.push(['','Total capex','','','',Math.round(last.capex)]);
+  shareOrCopy('RackRight bill of quantities',rows.map(r=>r.map(q).join(',')).join('\n'));
+};
+$('#copySum').onclick=()=>{
+  const r=last,d=S.design;
+  shareOrCopy('RackRight summary – '+(S.name||'Warehouse concept'),`${S.name||'Warehouse concept'}
+Design: ${PALLET[d.pallet].n}; ${SMALL[d.small].n}; ${TRANSPORT[d.transport].n}; ${SORTER[d.sorter].n}
+Region: ${regionOf(S.demand).n}
+Profile: ${PRODUCT_TYPES[S.demand.productType][0]}, ${S.demand.productSize} items, ${S.demand.orderProfile.toUpperCase()}, ${S.demand.temp}
+Demand: ${n0(S.demand.palletPos)} pallet positions, ${n0(S.demand.toteLoc)} tote locations, ${n0(S.demand.orders)} orders/day × ${S.demand.lpo} lines
+Capex: ${money(r.capex,false)}
+${GROUPS.filter(g=>r.byG[g]>0).map(g=>`  ${g}: ${money(r.byG[g],false)}`).join('\n')}
+Footprint: ${n0(r.totArea)} m²
+Labour: ${n0(r.pkHeads)} peak heads/shift, ${n0(r.fte)} FTE
+Annual opex: ${money(r.opex,false)} (${S.cur}${r.perOrder.toFixed(2)}/order)
+Concept-stage estimate (range −25% / +40%) from RackRight benchmark rates, before supplier quotes.`);
+};
+
+/* ===================== NAV ===================== */
+function go(v){$$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));window.scrollTo(0,0);try{history.replaceState(null,'','#'+v)}catch(e){}}
+$$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+$$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+function init(){ $('#projName').value=S.name||''; buildDemand();buildDesign();buildRates();refresh(); }
+document.documentElement.classList.toggle('native',NATIVE);
+init();
+initStore();
+const h=(location.hash||'').slice(1); if(['projects','demand','design','results','layout','compare','rates'].includes(h)) go(h);
+</script>
+</body>
+</html>
