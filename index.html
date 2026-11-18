@@ -97,6 +97,7 @@ ol.adv li b{display:block;font-size:14px}
 .basis{display:block;font-size:11.5px;color:var(--mute);margin-top:2px;line-height:1.35}
 .basis a,.srcs a{color:var(--navy)}
 .srcs li{font-size:12.5px;margin-bottom:6px}
+.admin-only{display:none}html.admin .admin-only{display:flex}
 .nat{display:none}html.native .nat{display:inline}html.native .web{display:none}
 .note{font-size:12px;color:var(--mute);margin-top:8px}
 .sheet{position:fixed;inset:0;background:rgba(20,25,35,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
@@ -193,11 +194,23 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
     <div class="grid" id="g-conv"></div>
     <p class="note" id="convNote"></p>
   </div>
-  <div class="btns"><button class="btn d" data-go="results">See results →</button></div>
+  <div class="btns" style="margin-bottom:12px"><button class="btn d" data-go="results">See results →</button></div>
+  <div class="card rec" id="submitCard">
+    <h2>✉ Send for review</h2>
+    <p class="hint" id="submitHint">Fill in Demand and Design, add your details, then email the design for review. The email contains a summary and a link that opens this exact design in RackRight.</p>
+    <div class="grid">
+      <label class="f">Your name<input id="m_rep" autocomplete="name"></label>
+      <label class="f">Your email<input id="m_email" type="email" autocomplete="email"></label>
+      <label class="f">Customer / site<input id="m_cust"></label>
+    </div>
+    <label class="f" style="margin-top:10px">Notes for the reviewer<textarea id="m_notes" style="min-height:70px;font-family:inherit;font-size:14px"></textarea></label>
+    <div class="btns" style="margin-top:10px"><button class="btn p" id="sendRev">Email for review</button><button class="btn" id="copyRev">Copy review link</button></div>
+  </div>
 </section>
 
 <!-- RESULTS -->
 <section class="view" id="v-results">
+  <div id="reviewBanner"></div>
   <div id="warns"></div>
   <div class="kpis" id="kpis"></div>
   <div class="card">
@@ -263,17 +276,14 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
 
 <!-- RATES -->
 <section class="view" id="v-rates">
+  <div class="card" id="adminBox"></div>
   <div class="card">
     <h2>Cost &amp; performance library</h2>
-    <p class="hint">UK base rates in £ (reviewed Nov 2026), each with its basis, source and a confidence rating: <span class="cf H">High</span> official statistic, <span class="cf M">Med</span> several published benchmarks agree, <span class="cf L">Low</span> single source or engineering allowance. Public prices are mostly US/Asia list or guide prices converted at ECB rates, so treat Low items as placeholders until you have supplier quotes. Edit any value; changes are highlighted.</p>
+    <p class="hint">Base rates in US$ (reviewed Nov 2026), each with its basis, source and a confidence rating: <span class="cf H">High</span> official statistic, <span class="cf M">Med</span> several published benchmarks agree, <span class="cf L">Low</span> single source or engineering allowance. Public prices are mostly US/Asia list or guide prices converted at ECB reference rates where needed, so treat Low items as placeholders until you have supplier quotes. Edit any value; changes are highlighted.</p>
     <div class="warn" style="background:#eef2f7;border-color:#c9d3e0;color:var(--ink)" id="regInfo"></div>
-    <p class="hint">Region is set on the Demand tab. Override currency or FX here for a custom region.</p>
-    <div class="grid" style="max-width:340px;margin-bottom:10px">
-      <label class="f">Currency<select id="cur"><option>£</option><option>€</option><option>$</option><option>zł</option><option>Ft</option></select></label>
-      <label class="f">FX (local units per £1)<input id="fx" type="number" step="0.001"></label>
-    </div>
+    <p class="hint">Region is set on the Demand tab.</p>
     <div class="scroll"><table class="rates" id="rateTbl"></table></div>
-    <div class="btns" style="margin-top:12px"><button class="btn" id="resetRates">Reset rates</button></div>
+    <div class="btns admin-only" style="margin-top:12px"><button class="btn" id="resetRates">Reset all rates to built-in defaults</button></div>
   </div>
   <div class="card">
     <h2>Sources</h2>
@@ -318,18 +328,19 @@ const DEMAND = [
 // Region presets. fx = local units per £1 (ECB reference rates, 16 Nov 2026).
 // lab = fully loaded warehouse operative cost per hour in local currency.
 // eq = equipment price factor vs UK; services/installation factor is derived from labour cost.
+// Regions: all money in US$ by default. Labour and equipment factors live in the rate library (admin-editable).
 const REGIONS = {
- uk:{n:'United Kingdom',cur:'£',fx:1,lab:17.5,eq:1.00,why:'NLW £12.71 (Apr 2026); operatives typically £13.80–17/hr base; +~25% employer NI, pension and holiday [S16,S17]'},
- de:{n:'Germany',cur:'€',fx:1.198,lab:28.0,eq:1.00,why:'Destatis: €45/hr whole-economy labour cost 2025 × ~62% for warehouse operatives [S19]'},
- nl:{n:'Netherlands',cur:'€',fx:1.198,lab:29.5,eq:1.00,why:'Eurostat: €47.9/hr whole-economy 2025 × ~62% [S18]'},
- pl:{n:'Poland',cur:'zł',fx:5.276,lab:52,eq:0.95,why:'Eurostat: €19.1/hr whole-economy 2025 × ~62% ≈ €11.8 ≈ 52 zł; local racking supply ~5% cheaper (assumption) [S18]'},
- hu:{n:'Hungary',cur:'Ft',fx:436.6,lab:3430,eq:0.97,why:'Eurostat: €15.2/hr whole-economy 2025 × ~62% ≈ €9.4 ≈ 3,430 Ft [S18]'},
- us:{n:'United States',cur:'$',fx:1.320,lab:28.7,eq:1.00,why:'BLS: warehousing material movers median $22.06/hr × ~1.3 benefits load [S20]'},
- mx:{n:'Mexico – northern border',cur:'$',fx:1.320,lab:5.0,eq:1.08,why:'Total employer cost for entry-level operators ~$3.50–5.50/hr (border-zone minimum MXN 440.87/day); +8% import duty/freight on equipment (assumption) [S21]'},
- custom:{n:'Custom (set rates yourself)',cur:null,fx:null,lab:null,eq:1.00,why:'Uses the currency, FX and labour rate you enter'},
+ uk:{n:'United Kingdom',why:'NLW £12.71 (Apr 2026); operatives typically £13.80–17/hr base; +~25% employer NI, pension and holiday ≈ £17.50 ≈ $23.10 [S16,S17,S22]'},
+ de:{n:'Germany',why:'Destatis: €45/hr whole-economy labour cost 2025 × ~62% for warehouse operatives ≈ €28 ≈ $30.80 [S19,S22]'},
+ nl:{n:'Netherlands',why:'Eurostat: €47.9/hr whole-economy 2025 × ~62% ≈ €29.5 ≈ $32.50 [S18,S22]'},
+ pl:{n:'Poland',why:'Eurostat: €19.1/hr whole-economy 2025 × ~62% ≈ €11.8 ≈ $13.00; local racking supply ~5% cheaper (assumption) [S18,S22]'},
+ hu:{n:'Hungary',why:'Eurostat: €15.2/hr whole-economy 2025 × ~62% ≈ €9.4 ≈ $10.40 [S18,S22]'},
+ us:{n:'United States',why:'BLS: warehousing material movers median $22.06/hr × ~1.3 benefits load ≈ $28.70 [S20]'},
+ mx:{n:'Mexico – northern border',why:'Total employer cost for entry-level operators ~$3.50–5.50/hr (border-zone minimum MXN 440.87/day); +8% import duty/freight on equipment (assumption) [S21]'},
 };
 const regionOf=D=>REGIONS[D.region]||REGIONS.uk;
-function regionFactors(D,R){const p=regionOf(D);const fx=S.fx||1;const labGBP=R.c_lab/fx;return {eq:p.eq,svc:0.6+0.4*Math.min(2,labGBP/17.5)}}
+const regKey=D=>REGIONS[D.region]?D.region:'uk';
+function regionFactors(D,R){const k=regKey(D);const lab=R['lab_'+k]??R.lab_uk;return {k,lab,eq:R['eq_'+k]??1,svc:0.6+0.4*Math.min(2,lab/(R.lab_uk||23.1))}}
 const PRODUCT_TYPES = {
  fashion:['Apparel & footwear','small','b2c','ambient'],
  beauty:['Health & beauty','small','b2c','ambient'],
@@ -358,17 +369,17 @@ const PAL_AREA = {uk:1,euro:.85,us:1.02,half:.62};
 const RATES = [
  // [key,label,default,unit,group,isMoney]
  ['G','Pallet racking & MHE'],
- ['r_apr','Adjustable pallet racking (wide aisle)',55,'/position',1],
- ['r_vna','VNA racking incl. guidance',70,'/position',1],
- ['r_drivein','Drive-in racking',95,'/position',1],
- ['r_pshut','Pallet shuttle racking',140,'/position',1],
- ['r_pasrs','Pallet AS/RS steel & rails',140,'/position',1],
- ['c_reach','Reach truck',42000,'each',1],
- ['c_vnatruck','VNA man-up turret truck',135000,'each',1],
- ['c_cb','Counterbalance / PPT (transport)',28000,'each',1],
- ['c_shuttleCar','Pallet shuttle carrier',32000,'each',1],
- ['c_crane','Pallet stacker crane',420000,'each',1],
- ['c_palConv','Pallet conveyor',1500,'/m',1],
+ ['r_apr','Adjustable pallet racking (wide aisle)',73,'/position',1],
+ ['r_vna','VNA racking incl. guidance',92,'/position',1],
+ ['r_drivein','Drive-in racking',125,'/position',1],
+ ['r_pshut','Pallet shuttle racking',185,'/position',1],
+ ['r_pasrs','Pallet AS/RS steel & rails',185,'/position',1],
+ ['c_reach','Reach truck',55000,'each',1],
+ ['c_vnatruck','VNA man-up turret truck',178000,'each',1],
+ ['c_cb','Counterbalance / PPT (transport)',37000,'each',1],
+ ['c_shuttleCar','Pallet shuttle carrier',42000,'each',1],
+ ['c_crane','Pallet stacker crane',555000,'each',1],
+ ['c_palConv','Pallet conveyor',2000,'/m',1],
  ['p_reach','Reach truck pallet moves / hr',22,'/hr',0],
  ['p_vna','VNA pallet moves / hr',28,'/hr',0],
  ['p_drivein','Drive-in pallet moves / hr',18,'/hr',0],
@@ -376,26 +387,26 @@ const RATES = [
  ['p_crane','Crane double cycles / hr',30,'/hr',0],
  ['p_posPerCrane','Max positions per crane aisle',2500,'pos',0],
  ['G','Small-parts storage'],
- ['r_shelf','Static shelving',8,'/location',1],
- ['c_cart','Pick cart',900,'each',1],
+ ['r_shelf','Static shelving',11,'/location',1],
+ ['c_cart','Pick cart',1200,'each',1],
  ['p_cart','Manual cart pick rate',90,'lines/hr',0],
  ['p_amrAssist','AMR-assisted pick rate',165,'lines/hr',0],
- ['c_amrPick','Collaborative pick AMR',30000,'each',1],
+ ['c_amrPick','Collaborative pick AMR',40000,'each',1],
  ['p_amrPickBot','Lines / hr per pick AMR',60,'lines/hr',0],
- ['r_acr','ACR (tote robot) racking',18,'/location',1],
- ['c_acr','ACR tote robot',48000,'each',1],
+ ['r_acr','ACR (tote robot) racking',24,'/location',1],
+ ['c_acr','ACR tote robot',63000,'each',1],
  ['p_acr','ACR tote presentations / hr',55,'/hr',0],
- ['c_acrPort','ACR workstation',30000,'each',1],
+ ['c_acrPort','ACR workstation',40000,'each',1],
  ['p_acrPort','ACR port pick rate',250,'lines/hr',0],
- ['r_shut','Tote shuttle racking & lifts',55,'/location',1],
- ['c_shut','Tote shuttle vehicle',38000,'each',1],
+ ['r_shut','Tote shuttle racking & lifts',73,'/location',1],
+ ['c_shut','Tote shuttle vehicle',50000,'each',1],
  ['p_shut','Shuttle cycles / hr',140,'/hr',0],
- ['c_shutPort','Shuttle GTP workstation',60000,'each',1],
+ ['c_shutPort','Shuttle GTP workstation',79000,'each',1],
  ['p_shutPort','Shuttle port pick rate',280,'lines/hr',0],
- ['r_asGrid','AutoStore grid (per bin cell)',32,'/bin',1],
- ['r_asBin','AutoStore bin',13,'/bin',1],
- ['c_asBot','AutoStore robot incl. charging',30000,'each',1],
- ['c_asPort','AutoStore port',45000,'each',1],
+ ['r_asGrid','AutoStore grid (per bin cell)',42,'/bin',1],
+ ['r_asBin','AutoStore bin',17,'/bin',1],
+ ['c_asBot','AutoStore robot incl. charging',40000,'each',1],
+ ['c_asPort','AutoStore port',59000,'each',1],
  ['p_asBot','Bin presentations / robot / hr',40,'/hr',0],
  ['p_asPort','Port pick rate',200,'lines/hr',0],
  ['n_asExtra','Extra ports (inbound / cycle count)',2,'ports',0],
@@ -403,19 +414,19 @@ const RATES = [
  ['k_linesPres','Lines per bin presentation',1.3,'lines',0],
  ['k_inbPres','Inbound presentations uplift',0.15,'ratio',0],
  ['G','Transport, conveyors & sortation'],
- ['c_palAmr','Pallet AMR',75000,'each',1],
- ['c_fleet','AMR fleet manager software',70000,'fixed',1],
- ['c_conv','Tote / carton conveyor (avg)',950,'/m',1],
- ['c_spiral','Spiral / vertical conveyor',60000,'each',1],
- ['c_divert','Merge / divert unit',8000,'each',1],
- ['c_popBase','Pop-up wheel sorter – base',140000,'fixed',1],
- ['c_popDiv','Pop-up wheel sorter – per divert',7000,'each',1],
+ ['c_palAmr','Pallet AMR',99000,'each',1],
+ ['c_fleet','AMR fleet manager software',92000,'fixed',1],
+ ['c_conv','Tote / carton conveyor (avg)',1250,'/m',1],
+ ['c_spiral','Spiral / vertical conveyor',79000,'each',1],
+ ['c_divert','Merge / divert unit',10500,'each',1],
+ ['c_popBase','Pop-up wheel sorter – base',185000,'fixed',1],
+ ['c_popDiv','Pop-up wheel sorter – per divert',9200,'each',1],
  ['p_popMax','Pop-up wheel max rate',5000,'items/hr',0],
- ['c_xbBase','Cross-belt sorter – base',650000,'fixed',1],
- ['c_xbRate','Cross-belt – per 1,000 items/hr',90000,'per k/hr',1],
- ['c_xbChute','Cross-belt – per chute',4000,'each',1],
+ ['c_xbBase','Cross-belt sorter – base',860000,'fixed',1],
+ ['c_xbRate','Cross-belt – per 1,000 items/hr',119000,'per k/hr',1],
+ ['c_xbChute','Cross-belt – per chute',5300,'each',1],
  ['G','Software, services & fit-out'],
- ['c_wcs','WCS / fleet integration (fixed)',180000,'fixed',1],
+ ['c_wcs','WCS / fleet integration (fixed)',238000,'fixed',1],
  ['k_controls','Controls & electrical',0.08,'× automation',0],
  ['k_install','Installation & commissioning',0.15,'× automation',0],
  ['k_eng','Engineering & project management',0.08,'× equipment',0],
@@ -433,8 +444,23 @@ const RATES = [
  ['m_port','Area per GTP port (incl. conveyor)',30,'m²',0],
  ['m_charge','Charging / parking per vehicle',4,'m²',0],
  ['k_misc','Offices, welfare & plant allowance',0.08,'× zones',0],
+ ['G','Labour by region (fully loaded, per hour)'],
+ ['lab_uk','United Kingdom',23.1,'/hr',1],
+ ['lab_de','Germany',30.8,'/hr',1],
+ ['lab_nl','Netherlands',32.5,'/hr',1],
+ ['lab_pl','Poland',13.0,'/hr',1],
+ ['lab_hu','Hungary',10.4,'/hr',1],
+ ['lab_us','United States',28.7,'/hr',1],
+ ['lab_mx','Mexico – northern border',5.0,'/hr',1],
+ ['G','Equipment price factor by region'],
+ ['eq_uk','United Kingdom',1.00,'×',0],
+ ['eq_de','Germany',1.00,'×',0],
+ ['eq_nl','Netherlands',1.00,'×',0],
+ ['eq_pl','Poland',0.95,'×',0],
+ ['eq_hu','Hungary',0.97,'×',0],
+ ['eq_us','United States',1.00,'×',0],
+ ['eq_mx','Mexico – northern border',1.08,'×',0],
  ['G','Labour & running costs'],
- ['c_lab','Labour cost, fully loaded (local currency)',17.5,'/hr',2],
  ['k_indirect','Indirect labour uplift (supervision, admin)',0.15,'ratio',0],
  ['k_absence','Absence / holiday cover for headcount',0.12,'ratio',0],
  ['p_recv','Receiving pallets / hr per FTE',14,'/hr',0],
@@ -443,8 +469,8 @@ const RATES = [
  ['p_sortOp','Automated sort items / hr per operator',700,'/hr',0],
  ['k_maintAuto','Automation maintenance / yr',0.03,'× capex',0],
  ['k_maintRack','Racking & shelving maintenance / yr',0.005,'× capex',0],
- ['c_mheRun','MHE truck running cost / yr',6500,'each',1],
- ['c_botSw','Robot software & support / yr',1800,'per robot',1],
+ ['c_mheRun','MHE truck running cost / yr',8600,'each',1],
+ ['c_botSw','Robot software & support / yr',2400,'per robot',1],
  ['n_tco','TCO horizon',7,'years',0],
 ];
 
@@ -475,41 +501,50 @@ const SOURCES = {
 };
 // confidence: H official statistic · M several published benchmarks agree · L single/indirect source or engineering assumption
 const RATE_SRC = {
- r_apr:['M','$50–75 materials (US integrator) to $50–120 (2026 guide) per position; £55 ≈ $73 incl. install','S1,S2'],
- r_vna:['M','VNA racking $80–200 per position incl. guidance rail; £70 ≈ $92','S3'],
- r_drivein:['M','Drive-in $115–135 per position (2–4 deep); £95 ≈ $125','S1,S2'],
- r_pshut:['L','Semi-automatic shuttle lanes priced like push-back ($150–300); £140 ≈ $185','S3'],
- r_pasrs:['M','Steel & rails only. With cranes, conveyor and services the model lands ≈ £450–550/position, inside the $300–800 installed benchmark','S4'],
- c_reach:['L','No public list prices. Typical new UK electric reach truck £35–50k; get a dealer quote',''],
- c_vnatruck:['L','Man-up turret trucks typically £110–160k; dealer quote needed',''],
+ r_apr:['M','$50–75 materials (US integrator) to $50–120 (2026 guide) per position; $73 incl. install','S1,S2'],
+ r_vna:['M','VNA racking $80–200 per position incl. guidance rail','S3'],
+ r_drivein:['M','Drive-in $115–135 per position (2–4 deep)','S1,S2'],
+ r_pshut:['L','Semi-automatic shuttle lanes priced like push-back ($150–300)','S3'],
+ r_pasrs:['M','Steel & rails only. With cranes, conveyor and services the model lands ≈ $600–720/position, inside the $300–800 installed benchmark','S4'],
+ c_reach:['L','No public list prices. Typical new electric reach truck $45–65k; get a dealer quote',''],
+ c_vnatruck:['L','Man-up turret trucks typically $145–210k; dealer quote needed',''],
  c_cb:['L','Electric counterbalance / powered pallet truck blended allowance',''],
  c_shuttleCar:['L','Western-brand pallet shuttle carrier; Asian carriers can be far cheaper','S5'],
- c_crane:['L','RM 0.8–2.5m per crane (≈ £135–420k) in Asia; European cranes sit at the top of that range','S5'],
+ c_crane:['L','RM 0.8–2.5m per crane (≈ $180–555k) in Asia; European cranes sit at the top of that range','S5'],
  c_palConv:['L','Pallet roller / chain conveyor incl. install; engineering allowance',''],
  r_shelf:['L','Boltless shelving incl. install per location; engineering allowance',''],
  c_amrPick:['M','Locus-type collaborative robots $35–45k; $20–45k incl. software','S9,S10'],
  r_acr:['L','ACR racking per tote location; engineering allowance',''],
- c_acr:['L','Hai ACR listing indications $42–65k; £48k ≈ $63k','S11'],
+ c_acr:['L','Hai ACR listing indications $42–65k','S11'],
  c_acrPort:['L','Workstation allowance',''],
  r_shut:['L','Shuttle racking & lifts per location; allowance',''],
  c_shut:['L','Tote shuttle vehicle; allowance',''],
  c_shutPort:['L','GTP workstation incl. local conveyor; allowance',''],
- r_asGrid:['M','Grid + bin ≈ £45 ($60) per bin cell, inside the $50–120 per bin position benchmark','S8'],
- r_asBin:['M','See grid. Typical AutoStore totals $3–6m; the default model (30k bins) ≈ £4.5m','S6,S7'],
- c_asBot:['M','Robot $30–50k; £30k ≈ $40k','S8,S15'],
+ r_asGrid:['M','Grid + bin ≈ $59 per bin cell, inside the $50–120 per bin position benchmark','S8'],
+ r_asBin:['M','See grid. Typical AutoStore totals $3–6m; the default model (30k bins) ≈ $6m','S6,S7'],
+ c_asBot:['M','Robot $30–50k','S8,S15'],
  c_asPort:['L','Port price varies widely by type (VersaPort to CarouselPort)','S6'],
  p_asBot:['M','Kardex rule of thumb ~30 bins/robot/hr; 40 used as an actual-volume planning rate','S6'],
- c_palAmr:['M','OTTO 1500 ~$80k; pallet AMRs AUD 100–200k (≈ £50–100k)','S12,S23'],
+ c_palAmr:['M','OTTO 1500 ~$80k; pallet AMRs AUD 100–200k (≈ $65–130k)','S12,S23'],
  c_fleet:['L','Fleet manager and site integration; integration adds 30–60% to unit cost on small fleets','S23'],
- c_conv:['M','Powered roller $500–3,000 per metre; £950 ≈ $1,250 mid-range MDR','S13'],
- c_xbBase:['L','Calibrated so a 20,000/hr loop ≈ £2.5m (≈ $3.3m), consistent with ~$3m+ systems','S14'],
+ c_conv:['M','Powered roller $500–3,000 per metre; $1,250 mid-range MDR','S13'],
+ c_xbBase:['L','Calibrated so a 20,000/hr loop ≈ $3.3m, consistent with ~$3m+ systems','S14'],
  c_xbRate:['L','See base','S14'],
  c_wcs:['L','WCS / integration fixed allowance',''],
  k_controls:['M','Controller software typically 8–12% of hardware','S15'],
  k_install:['M','Installation & commissioning 15–25% of hardware','S15'],
  k_eng:['M','Design & engineering 7–12% plus PM 5–8%; combined allowance 8% of equipment','S15'],
  k_cont:['L','Concept-stage contingency',''],
- c_lab:['H','Set by region. UK: NLW £12.71 (Apr 2026), operatives typically £13.80–17/hr, plus ~25% on-costs','S16,S17'],
+ lab_uk:['H','NLW £12.71 (Apr 2026), operatives typically £13.80–17/hr, plus ~25% on-costs; converted at ECB rate','S16,S17,S22'],
+ lab_de:['M','€45/hr whole-economy (Destatis 2025) × ~62% warehouse share (assumption)','S19,S22'],
+ lab_nl:['M','€47.9/hr whole-economy (Eurostat 2025) × ~62% (assumption)','S18,S22'],
+ lab_pl:['M','€19.1/hr whole-economy (Eurostat 2025) × ~62% (assumption)','S18,S22'],
+ lab_hu:['M','€15.2/hr whole-economy (Eurostat 2025) × ~62% (assumption)','S18,S22'],
+ lab_us:['H','BLS median $22.06/hr × ~1.3 benefits load','S20'],
+ lab_mx:['M','Employer cost $3.50–5.50/hr for entry-level operators','S21'],
+ eq_pl:['L','Local racking supply ~5% cheaper (assumption)',''],
+ eq_hu:['L','Local racking supply ~3% cheaper (assumption)',''],
+ eq_mx:['L','+8% import duty and freight on equipment (assumption)',''],
  c_botSw:['M','$1–3k per robot per year support','S10'],
  k_maintAuto:['L','Annual service contracts typically 2–4% of automation capex',''],
 };
@@ -556,12 +591,12 @@ const LVL = {m:'Manual',s:'Semi',a:'Auto'};
 const DEF_DEMAND = Object.assign(Object.fromEntries(DEMAND.map(d=>[d[0],d[2]])),Object.fromEntries(PROFILE.map(p=>[p[0],p[3]])));
 const DEF_RATES = Object.fromEntries(RATES.filter(r=>r[0]!=='G').map(r=>[r[0],r[2]]));
 const DEF_DESIGN = {pallet:'vna',small:'autostore',transport:'amr',sorter:'popup',convAuto:true,conv:{m:200,spirals:0,diverts:6}};
-function fresh(){return {name:'',layout:{for:'mine',flow:'auto'},cur:'£',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
+function fresh(){return {name:'',meta:{},layout:{for:'mine',flow:'auto'},cur:'$',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
 let S = fresh();
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 const saved = load('whs_state');
-if(saved){S = Object.assign(fresh(),saved);S.layout={for:'mine',flow:'auto',...(saved.layout||{})};S.demand={...DEF_DEMAND,...saved.demand};S.rates={...DEF_RATES,...saved.rates};S.design={...DEF_DESIGN,...saved.design,conv:{...DEF_DESIGN.conv,...(saved.design||{}).conv}}}
+if(saved){S = Object.assign(fresh(),saved);S.layout={for:'mine',flow:'auto',...(saved.layout||{})};S.demand={...DEF_DEMAND,...saved.demand};S.meta={...(saved.meta||{})};if(!REGIONS[S.demand.region])S.demand.region='uk';S.design={...DEF_DESIGN,...saved.design,conv:{...DEF_DESIGN.conv,...(saved.design||{}).conv}}}
 
 /* ===================== MODEL ===================== */
 function calc(design, D, R){
@@ -762,7 +797,7 @@ function calc(design, D, R){
   const avgHeads=lab.reduce((a,b)=>a+b.avg,0)*(1+R.k_indirect);
   const pkHeads=lab.reduce((a,b)=>a+b.pk,0);
   const labHrs=avgHeads*hrs*D.days;
-  const labCost=labHrs*R.c_lab;
+  const labCost=labHrs*RG.lab*fx;
   const fte=Math.ceil(pkHeads*(1+R.k_indirect)*D.shifts*(1+R.k_absence));
   const maint=(byG['Automation & robotics']+byG['Conveyors & sortation']+byG['Software & controls'])*R.k_maintAuto
              + byG['Storage & racking']*R.k_maintRack + mhe.n*M('c_mheRun') + robots.n*M('c_botSw');
@@ -970,6 +1005,56 @@ function recommend(D,R){
 }
 function recDesign(rc){return {pallet:rc.pallet[0].k,small:rc.small[0].k,transport:rc.transport[0].k,sorter:rc.sorter[0].k,convAuto:true,conv:{...DEF_DESIGN.conv}}}
 
+
+/* ===================== RATE LIBRARY (central, admin-only edits) ===================== */
+// Everyone uses one library: built-in defaults, overridden by a published rates.json beside the page,
+// overridden by the admin's unpublished draft (only while the admin is unlocked on that browser).
+const PUBLIC_URL='https://sleigh24-star.github.io/rackright/';
+const LIB_DEF={v:2,cur:'$',fx:1,reviewEmail:'',adminHash:'',updated:'',rates:{}};
+let LIB=JSON.parse(JSON.stringify(LIB_DEF)), LIB_SRC='built-in', PUBLISHED=null;
+let ADMIN=(()=>{try{return sessionStorage.getItem('rr_admin')==='1'}catch(e){return false}})();
+function libRates(){return {...DEF_RATES,...(LIB.rates||{})}}
+function syncLib(){S.rates=libRates();S.cur=LIB.cur||'$';S.fx=LIB.fx||1}
+async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('rackright:'+t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=0;for(const c of 'rackright:'+t)h=(h*31+c.charCodeAt(0))|0;return 'x'+h}}
+async function loadLib(){
+  try{const r=await fetch('rates.json',{cache:'no-store'});if(r.ok){PUBLISHED=await r.json();LIB={...LIB_DEF,...PUBLISHED,rates:{...(PUBLISHED.rates||{})}};LIB_SRC='published'}}catch(e){}
+  if(ADMIN){const d=load('whs_admin_lib');if(d){LIB={...LIB_DEF,...d,rates:{...(d.rates||{})}};LIB_SRC='draft'}}
+  syncLib();buildRates();renderAdmin();renderSubmit();refresh();
+}
+function saveDraft(){LIB_SRC='draft';store('whs_admin_lib',LIB);renderAdmin()}
+function renderAdmin(){
+  const box=$('#adminBox'); if(!box) return;
+  const src=LIB_SRC==='published'?`Published rates${LIB.updated?' · '+new Date(LIB.updated).toLocaleDateString('en-GB'):''}`:LIB_SRC==='draft'?'Admin draft – not yet published':'Built-in defaults';
+  document.documentElement.classList.toggle('admin',ADMIN);
+  if(!ADMIN){
+    box.innerHTML=`<h2>🔒 Rates are locked</h2><p class="hint">${src}. Only the admin can change rates. Everyone using RackRight gets the same library.</p>
+      <div class="grid" style="max-width:420px"><label class="f">${LIB.adminHash?'Admin PIN':'Set an admin PIN (first time)'}<input id="pin" type="password" inputmode="numeric" autocomplete="off"></label>${LIB.adminHash?'':'<label class="f">Confirm PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="off"></label>'}</div>
+      <div class="btns" style="margin-top:10px"><button class="btn d" id="unlock">${LIB.adminHash?'Unlock':'Set PIN & unlock'}</button></div>`;
+    $('#unlock').onclick=async()=>{const p=$('#pin').value.trim();if(p.length<4)return toast('PIN must be at least 4 characters');
+      if(!LIB.adminHash){if(p!==$('#pin2').value.trim())return toast("PINs don't match");LIB.adminHash=await sha(p);ADMIN=true;try{sessionStorage.setItem('rr_admin','1')}catch(e){}saveDraft();buildRates();toast('Admin PIN set – publish rates.json to lock it in');return}
+      if(await sha(p)===LIB.adminHash){ADMIN=true;try{sessionStorage.setItem('rr_admin','1')}catch(e){}const d=load('whs_admin_lib');if(d&&d.adminHash===LIB.adminHash){LIB={...LIB_DEF,...d,rates:{...(d.rates||{})}};LIB_SRC='draft'}syncLib();buildRates();renderAdmin();refresh();toast('Unlocked')}else toast('Wrong PIN')};
+  } else {
+    box.innerHTML=`<h2>🔓 Admin mode</h2><p class="hint">${src}. Edits apply on this browser straight away. To give them to everyone, download <b>rates.json</b> and upload it to the rackright repo.</p>
+      <div class="grid" style="max-width:520px">
+        <label class="f">Review emails go to<input id="revEmail" type="email" value="${esc(LIB.reviewEmail||'')}" placeholder="you@company.com"></label>
+        <label class="f">Currency<select id="cur"><option>$</option><option>£</option><option>€</option><option>zł</option><option>Ft</option></select></label>
+        <label class="f">FX (units per US$1)<input id="fx" type="number" step="0.0001" value="${LIB.fx}"></label>
+      </div>
+      <div class="btns" style="margin-top:10px"><button class="btn p" id="dlLib">Download rates.json</button><button class="btn" id="cpLib">Copy rates.json</button><a class="btn" href="https://github.com/sleigh24-star/rackright/upload/main" target="_blank" rel="noopener" style="text-decoration:none">Upload to GitHub ↗</a></div>
+      <div class="btns" style="margin-top:8px"><button class="btn" id="discard">Discard draft</button><button class="btn" id="chPin">Change PIN</button><button class="btn d" id="lock">Lock</button></div>`;
+    $('#cur').value=LIB.cur||'$';
+    $('#revEmail').oninput=e=>{LIB.reviewEmail=e.target.value.trim();saveDraft();renderSubmit()};
+    $('#cur').onchange=e=>{LIB.cur=e.target.value;saveDraft();syncLib();buildRates();refresh()};
+    $('#fx').oninput=e=>{const v=parseFloat(e.target.value);if(v>0){LIB.fx=v;store('whs_admin_lib',LIB);LIB_SRC='draft';syncLib();refresh()}};
+    const out=()=>{LIB.updated=new Date().toISOString();const o={...LIB,rates:{}};Object.keys(DEF_RATES).forEach(k=>{if(LIB.rates[k]!==undefined&&LIB.rates[k]!==DEF_RATES[k])o.rates[k]=LIB.rates[k]});store('whs_admin_lib',LIB);return JSON.stringify(o,null,1)};
+    $('#dlLib').onclick=()=>{try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out()],{type:'application/json'}));a.download='rates.json';document.body.appendChild(a);a.click();a.remove();toast('Downloaded – now upload it to GitHub')}catch(e){openSheet(out())}};
+    $('#cpLib').onclick=()=>copy(out());
+    $('#discard').onclick=()=>{try{localStorage.removeItem('whs_admin_lib')}catch(e){}LIB=PUBLISHED?{...LIB_DEF,...PUBLISHED,rates:{...(PUBLISHED.rates||{})}}:JSON.parse(JSON.stringify(LIB_DEF));LIB_SRC=PUBLISHED?'published':'built-in';syncLib();buildRates();renderAdmin();refresh();toast('Draft discarded')};
+    $('#chPin').onclick=()=>{LIB.adminHash='';ADMIN=false;try{sessionStorage.removeItem('rr_admin')}catch(e){}saveDraft();buildRates();toast('Set a new PIN')};
+    $('#lock').onclick=()=>{ADMIN=false;try{sessionStorage.removeItem('rr_admin')}catch(e){}if(LIB_SRC==='draft'){LIB=PUBLISHED?{...LIB_DEF,...PUBLISHED,rates:{...(PUBLISHED.rates||{})}}:{...LIB_DEF,...load('whs_admin_lib'),rates:{...((load('whs_admin_lib')||{}).rates||{})}};LIB_SRC=PUBLISHED?'published':'draft'}syncLib();buildRates();renderAdmin();refresh();toast('Locked')};
+  }
+}
+
 /* ===================== UI HELPERS ===================== */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const cur=()=>S.cur;
@@ -1001,7 +1086,7 @@ function buildProfile(){
     g.appendChild(w);
   });
 }
-function applyRegion(k){const p=REGIONS[k];S.demand.region=k;if(p&&p.cur){S.cur=p.cur;S.fx=p.fx;S.rates.c_lab=p.lab}buildRates();toast(p.n+': currency, labour and install factors applied')}
+function applyRegion(k){S.demand.region=k;buildRates();toast(REGIONS[k].n+': labour and install factors applied')}
 function buildDemand(){
   buildProfile();
   const tgt={storage:'#g-storage',flow:'#g-flow',ops:'#g-ops'};
@@ -1049,20 +1134,17 @@ function buildRates(){
     const refs=sr&&sr[2]?' '+sr[2].split(',').map(id=>`<a href="#src-${id}" onclick="document.getElementById('src-${id}').scrollIntoView({behavior:'smooth'});return false">[${id}]</a>`).join(''):'';
     const basis=sr?`<span class="basis">${sr[1]}${refs}</span>`:(String(k).startsWith('p_')||String(k).startsWith('n_')||String(k).startsWith('m_')||String(k).startsWith('h_')?'<span class="basis">Planning assumption (industry rule of thumb) – tune to your site data</span>':'');
     const conf=sr?`<span class="cf ${sr[0]}">${{H:'High',M:'Med',L:'Low'}[sr[0]]}</span>`:'';
-    h+=`<tr><td>${l}${conf}${basis}</td><td class="r"><input data-k="${k}" type="number" step="any" value="${v}" class="${v!==d&&!(k==='c_lab'&&v===(regionOf(S.demand).lab))?'chg':''}"></td><td style="color:var(--mute);font-size:12px">${m===1?'£':m===2?S.cur:''}${u}</td></tr>`;
+    h+=`<tr><td>${l}${conf}${basis}</td><td class="r"><input data-k="${k}" type="number" step="any" value="${v}" ${ADMIN?'':'disabled'} class="${v!==d?'chg':''}"></td><td style="color:var(--mute);font-size:12px">${m===1?S.cur:''}${u}</td></tr>`;
   });
   t.innerHTML=h;
   t.querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{
     const k=e.target.dataset.k,v=parseFloat(e.target.value);
-    if(!isNaN(v)){S.rates[k]=v;e.target.classList.toggle('chg',v!==DEF_RATES[k]);refresh(false)}
+    if(!isNaN(v)&&ADMIN){LIB.rates[k]=v;S.rates[k]=v;e.target.classList.toggle('chg',v!==DEF_RATES[k]);store('whs_admin_lib',LIB);if(LIB_SRC!=='draft'){LIB_SRC='draft';renderAdmin()}refresh(false)}
   }));
-  $('#cur').value=S.cur;$('#fx').value=S.fx;
   const p=regionOf(S.demand), rf=regionFactors(S.demand,S.rates);
-  $('#regInfo').innerHTML=`<b>${p.n}</b> · ${S.cur} at ${S.fx} per £1 [S22] · labour ${S.cur}${S.rates.c_lab}/hr · equipment ×${rf.eq.toFixed(2)} · installation & services ×${rf.svc.toFixed(2)}<span class="basis">${p.why}. Installation factor = 60% fixed (vendor crews, materials) + 40% scaled by local labour cost vs UK.</span>`;
+  $('#regInfo').innerHTML=`<b>${p.n}</b> · all costs in ${S.cur==='$'?'US$':S.cur+(S.fx!==1?' at '+S.fx+' per US$1':'')} · labour ${S.cur}${(rf.lab*S.fx).toFixed(2)}/hr · equipment ×${rf.eq.toFixed(2)} · installation & services ×${rf.svc.toFixed(2)}<span class="basis">${p.why}. Installation factor = 60% fixed (vendor crews, materials) + 40% scaled by local labour cost vs UK.</span>`;
   $('#srcList').innerHTML=Object.entries(SOURCES).map(([id,[t,u]])=>`<li id="src-${id}"><b>${id}</b> <a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('');
 }
-$('#cur').addEventListener('change',e=>{S.cur=e.target.value;buildRates();refresh()});
-$('#fx').addEventListener('input',e=>{const v=parseFloat(e.target.value);if(v>0){S.fx=v;refresh()}});
 $('#projName').addEventListener('input',e=>{S.name=e.target.value;persist()});
 
 /* ===================== RENDER ===================== */
@@ -1074,7 +1156,7 @@ function refresh(){
   const r=calc(S.design,S.demand,S.rates); last=r;
   $('#t-pal').textContent=PALLET[S.design.pallet].n; $('#t-sm').textContent=SMALL[S.design.small].n;
   $('#convNote').textContent=S.design.convAuto?`Auto estimate: ${n0(r.convLen)} m of tote/carton conveyor.`:'';
-  renderResults(r); renderCompare(); renderLayoutTab(); persist();
+  renderResults(r); renderCompare(); renderLayoutTab(); renderReviewBanner(); persist();
 }
 function renderRec(){
   const D=S.demand, names={pallet:['Pallet storage',PALLET],small:['Small parts & picking',SMALL],transport:['Pallet transport',TRANSPORT],sorter:['Sortation',SORTER]};
@@ -1198,23 +1280,23 @@ function renderCompare(){
 }
 
 /* ===================== PROJECTS (cloud db, local fallback) ===================== */
-function applyState(st){S=Object.assign(fresh(),st);S.demand={...DEF_DEMAND,...st.demand};S.rates={...DEF_RATES,...st.rates};S.design={...DEF_DESIGN,...st.design,conv:{...DEF_DESIGN.conv,...(st.design||{}).conv}};S.layout={for:'mine',flow:'auto',...(st.layout||{})};init()}
+function applyState(st){S=Object.assign(fresh(),st);S.demand={...DEF_DEMAND,...st.demand};S.design={...DEF_DESIGN,...st.design,conv:{...DEF_DESIGN.conv,...(st.design||{}).conv}};S.layout={for:'mine',flow:'auto',...(st.layout||{})};S.meta={...(st.meta||{})};if(!REGIONS[S.demand.region])S.demand.region='uk';syncLib();init()}
 function openSheet(t){$('#jsonBox').value=t;$('#sheet').classList.add('on')}
 $('#exportJson').onclick=()=>openSheet(JSON.stringify(S,null,1));
 $('#copyJson').onclick=()=>copy($('#jsonBox').value);
 $('#importJson').onclick=()=>{try{const st=JSON.parse($('#jsonBox').value);CUR_ID=uid();store('whs_cur',CUR_ID);applyState(st);$('#sheet').classList.remove('on');toast('Imported as a new project');saveNow()}catch(e){toast('That text isn\'t a valid model')}};
 $('#closeSheet').onclick=()=>$('#sheet').classList.remove('on');
-$('#resetRates').onclick=()=>{S.rates={...DEF_RATES};const p=regionOf(S.demand);if(p.cur){S.fx=p.fx;S.cur=p.cur;S.rates.c_lab=p.lab}buildRates();refresh();toast('Rates reset')};
+$('#resetRates').onclick=()=>{if(!ADMIN)return;LIB.rates={};saveDraft();syncLib();buildRates();refresh();toast('Rates reset to built-in defaults')};
 
 const PROJ={mode:'pending',coll:null,list:[],keys:{},chain:Promise.resolve(),timer:null,dirty:false,ready:false};
 let CUR_ID=load('whs_cur');
 const uid=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function stable(o){if(Array.isArray(o))return '['+o.map(stable).join(',')+']';if(o&&typeof o==='object')return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}';return JSON.stringify(o)}
-const keyOf=(name,st)=>stable({n:name||'',s:st});
+const keyOf=(name,st)=>{const c={...st};delete c.rates;delete c.cur;delete c.fx;return stable({n:name||'',s:c})};
 function projBody(){const r=last;return {name:S.name||'Untitled project',updated:new Date().toISOString(),
   summary:{capex:Math.round(r.capex),opex:Math.round(r.opex),area:Math.round(r.totArea),fte:r.fte,cur:S.cur,region:regionOf(S.demand).n,product:PRODUCT_TYPES[S.demand.productType][0],
   design:[PALLET[S.design.pallet].n,SMALL[S.design.small].n,TRANSPORT[S.design.transport].n,SORTER[S.design.sorter].n].join(' · ')},
-  state:JSON.parse(JSON.stringify(S))}}
+  state:(()=>{const c=JSON.parse(JSON.stringify(S));delete c.rates;return c})()}}
 const localMap=()=>load('whs_projects')||{};
 function setSave(st){const e=$('#saveState');e.className='ss'+(st==='saved'?' ok':st==='err'?' err':'');
   e.textContent=st==='pending'?'Saving…':st==='saved'?(PROJ.mode==='cloud'?'✓ Saved':'✓ Saved on this device'):st==='err'?'Not saved':'Connecting…'}
@@ -1263,7 +1345,7 @@ async function delProject(id){
     renderProjects();toast('Deleted');
   }catch(e){toast('Delete failed – try again')}
 }
-$('#newProj').onclick=()=>{if(PROJ.dirty)saveNow();const keep={rates:S.rates,cur:S.cur,fx:S.fx};CUR_ID=uid();store('whs_cur',CUR_ID);S={...fresh(),...keep,name:'New project'};init();saveNow();toast('New project – rates carried over');go('demand');setTimeout(()=>$('#projName').focus(),300)};
+$('#newProj').onclick=()=>{if(PROJ.dirty)saveNow();CUR_ID=uid();store('whs_cur',CUR_ID);S={...fresh(),name:'New project'};syncLib();init();saveNow();toast('New project');go('demand');setTimeout(()=>$('#projName').focus(),300)};
 $('#dupProj').onclick=()=>{if(PROJ.dirty)saveNow();CUR_ID=uid();store('whs_cur',CUR_ID);S.name=(S.name||'Untitled project')+' (copy)';$('#projName').value=S.name;saveNow();renderProjects();toast('Duplicated')};
 
 async function migrateLocal(){
@@ -1327,18 +1409,91 @@ ${GROUPS.filter(g=>r.byG[g]>0).map(g=>`  ${g}: ${money(r.byG[g],false)}`).join('
 Footprint: ${n0(r.totArea)} m²
 Labour: ${n0(r.pkHeads)} peak heads/shift, ${n0(r.fte)} FTE
 Annual opex: ${money(r.opex,false)} (${S.cur}${r.perOrder.toFixed(2)}/order)
-Concept-stage estimate (range −25% / +40%) from RackRight benchmark rates, before supplier quotes.`);
+Concept-stage estimate (range −25% / +40%) from RackRight benchmark rates (US$), before supplier quotes.`);
 };
+
+
+/* ===================== REVIEW SUBMISSION ===================== */
+const b64u={enc:u8=>{let s='';u8.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
+  dec:t=>{t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t);return Uint8Array.from(s,c=>c.charCodeAt(0))}};
+async function packReview(){
+  const o={v:1,name:S.name,meta:S.meta,demand:S.demand,design:S.design,layout:S.layout};
+  const raw=new TextEncoder().encode(JSON.stringify(o));
+  try{const cs=new CompressionStream('deflate-raw');const out=await new Response(new Blob([raw]).stream().pipeThrough(cs)).arrayBuffer();return 'z'+b64u.enc(new Uint8Array(out))}catch(e){return 'j'+b64u.enc(raw)}
+}
+async function unpackReview(t){
+  const kind=t[0],bytes=b64u.dec(t.slice(1));let txt;
+  if(kind==='z'){const ds=new DecompressionStream('deflate-raw');txt=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).text()}else txt=new TextDecoder().decode(bytes);
+  return JSON.parse(txt);
+}
+function reviewBase(){return /^https?:$/.test(location.protocol)&&!/appassets|claude|claudeusercontent/.test(location.host)?location.origin+location.pathname:PUBLIC_URL}
+async function reviewLink(){return reviewBase()+'#review='+await packReview()}
+function bindMeta(){
+  [['m_rep','rep'],['m_email','email'],['m_cust','customer'],['m_notes','notes']].forEach(([id,k])=>{const el=$('#'+id);el.value=(S.meta||{})[k]||'';el.oninput=e=>{S.meta={...(S.meta||{}),[k]:e.target.value};persist()}});
+}
+function renderSubmit(){
+  const h=$('#submitHint'); if(!h) return;
+  h.innerHTML=`Fill in Demand and Design, add your details, then email the design for review${LIB.reviewEmail?` to <b>${esc(LIB.reviewEmail)}</b>`:''}. The email contains a summary and a link that opens this exact design in RackRight.${LIB.reviewEmail?'':' <span style="color:var(--bad)">The admin hasn\'t set a review email yet – you can still copy the link.</span>'}`;
+}
+function reviewText(link){
+  const r=last,d=S.design,m=S.meta||{};
+  return `RackRight design for review
+
+Submitted by: ${m.rep||'-'}${m.email?' <'+m.email+'>':''}
+Customer / site: ${m.customer||'-'}
+Project: ${S.name||'Untitled'}
+Region: ${regionOf(S.demand).n} · ${PRODUCT_TYPES[S.demand.productType][0]}
+
+Design: ${PALLET[d.pallet].n}; ${SMALL[d.small].n}; ${TRANSPORT[d.transport].n}; ${SORTER[d.sorter].n}
+Capex: ${money(r.capex,false)} (range ${money(r.capex*0.75)}-${money(r.capex*1.4)})
+Annual opex: ${money(r.opex,false)}
+Footprint: ${n0(r.totArea)} m2 · ${n0(r.fte)} FTE
+
+Notes: ${m.notes||'-'}
+
+Open in RackRight to review:
+${link}`;
+}
+function checkMeta(){const m=S.meta||{};if(!m.rep||!m.customer){toast('Add your name and the customer first');$('#m_rep').focus();return false}return true}
+$('#sendRev').onclick=async()=>{
+  if(!checkMeta())return;
+  const link=await reviewLink(), m=S.meta||{};
+  S.meta={...m,submittedAt:new Date().toISOString()};persist();
+  const subj=`RackRight review: ${m.customer||''} – ${S.name||'design'} (${m.rep||''})`;
+  const body=reviewText(link);
+  if(!LIB.reviewEmail){copy(body);return toast('No review email set – summary and link copied')}
+  const url=`mailto:${encodeURIComponent(LIB.reviewEmail)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+  if(NATIVE){try{RRNative.share(subj,body);return}catch(e){}}
+  location.href=url;
+  setTimeout(()=>toast('If no email opened, use Copy review link'),1500);
+};
+$('#copyRev').onclick=async()=>{if(!checkMeta())return;copy(reviewText(await reviewLink()))};
+async function openReviewFromHash(){
+  const h=location.hash||''; if(!h.startsWith('#review=')) return false;
+  try{
+    const o=await unpackReview(h.slice(8));
+    try{history.replaceState(null,'',location.pathname+'#results')}catch(e){}
+    CUR_ID=uid();store('whs_cur',CUR_ID);
+    applyState({name:'[Review] '+((o.meta&&o.meta.customer)||o.name||'Design')+(o.meta&&o.meta.rep?' – '+o.meta.rep:''),meta:{...(o.meta||{}),review:true},demand:o.demand,design:o.design,layout:o.layout});
+    saveNow();go('results');toast('Review submission opened as a new project');return true;
+  }catch(e){toast("That review link couldn't be opened");return false}
+}
+function renderReviewBanner(){
+  const m=S.meta||{},el=$('#reviewBanner'); if(!el) return;
+  el.innerHTML=m.review?`<div class="card rec"><h2>✉ Submitted for review</h2><p class="hint" style="margin:0">From <b>${esc(m.rep||'-')}</b>${m.email?' ('+esc(m.email)+')':''} for <b>${esc(m.customer||'-')}</b>${m.submittedAt?' · '+new Date(m.submittedAt).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}${m.notes?'<br>Notes: '+esc(m.notes):''}<br>Costs use the current rate library, which may differ from when it was sent.</p></div>`:'';
+}
 
 /* ===================== NAV ===================== */
 function go(v){$$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));window.scrollTo(0,0);try{history.replaceState(null,'','#'+v)}catch(e){}}
 $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 $$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
 
-function init(){ $('#projName').value=S.name||''; buildDemand();buildDesign();buildRates();refresh(); }
+function init(){ $('#projName').value=S.name||''; buildDemand();buildDesign();buildRates();bindMeta();renderAdmin();renderSubmit();refresh(); }
 document.documentElement.classList.toggle('native',NATIVE);
+syncLib();
 init();
 initStore();
+loadLib().then(()=>openReviewFromHash());
 const h=(location.hash||'').slice(1); if(['projects','demand','design','results','layout','compare','rates'].includes(h)) go(h);
 </script>
 </body>
