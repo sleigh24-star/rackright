@@ -52,6 +52,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 th{font-size:11.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px;font-weight:600}
 td.r,th.r{text-align:right}
+td.num{white-space:nowrap}
 tr.grp td{background:#f6f5f0;font-weight:700;font-size:12.5px;color:var(--navy)}
 tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 .scroll{overflow-x:auto}
@@ -123,6 +124,7 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
     <button data-v="results">3 · Results</button>
     <button data-v="layout">4 · Layout</button>
     <button data-v="compare">5 · Compare</button>
+    <button data-v="roi">6 · ROI</button>
     <button data-v="rates">Rates</button>
   </nav>
 </header>
@@ -272,6 +274,30 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
     <div id="tcoChart"></div>
     <div class="legend" id="tcoLeg"></div>
   </div>
+</section>
+
+<!-- ROI -->
+<section class="view" id="v-roi">
+  <div class="card">
+    <h2>Return on investment</h2>
+    <p class="hint">Investment vs benefits for your design against a baseline. Benefits are labour saved, space saved (at regional rent) and the change in maintenance and running costs, plus anything else you add.</p>
+    <div class="grid">
+      <label class="f">Compare against<select id="roiBase"></select></label>
+      <label class="f">Other annual benefits (accuracy, damage, service)<input id="roiOther" type="number" step="1000" min="0"></label>
+    </div>
+    <div class="grid" id="roiCurBox" style="margin-top:10px">
+      <label class="f">Current FTE<input id="roiCurFte" type="number" step="1" min="0"></label>
+      <label class="f">Current site area m²<input id="roiCurArea" type="number" step="100" min="0"></label>
+      <label class="f">Current maintenance & running / yr<input id="roiCurRun" type="number" step="1000" min="0"></label>
+    </div>
+  </div>
+  <div class="kpis" id="roiKpis"></div>
+  <div class="card"><h2>Cumulative cash flow</h2><p class="hint" id="roiCfHint"></p><div id="roiCf"></div><div class="legend" id="roiCfLeg"></div></div>
+  <div class="card"><h2>Investment vs benefits</h2><div class="hbars" id="roiIvB"></div></div>
+  <div class="card"><h2>Annual benefit breakdown</h2><p class="hint">Steady-state year (year 2), before inflation.</p><div class="hbars" id="roiBreak"></div></div>
+  <div class="card"><h2>Sensitivity</h2><div class="scroll"><table id="roiSens"></table></div></div>
+  <div class="card rec"><h2>★ Analysis</h2><ol class="adv" id="roiText"></ol></div>
+  <div class="card"><h2>Year-by-year</h2><div class="scroll"><table id="roiTbl"></table></div></div>
 </section>
 
 <!-- RATES -->
@@ -460,6 +486,20 @@ const RATES = [
  ['eq_hu','Hungary',0.97,'×',0],
  ['eq_us','United States',1.00,'×',0],
  ['eq_mx','Mexico – northern border',1.08,'×',0],
+ ['G','Space cost by region (rent, per m² per year)'],
+ ['rent_uk','United Kingdom',130,'/m²/yr',1],
+ ['rent_de','Germany',99,'/m²/yr',1],
+ ['rent_nl','Netherlands',105,'/m²/yr',1],
+ ['rent_pl','Poland',50,'/m²/yr',1],
+ ['rent_hu','Hungary',70,'/m²/yr',1],
+ ['rent_us','United States',120,'/m²/yr',1],
+ ['rent_mx','Mexico – northern border',84,'/m²/yr',1],
+ ['G','ROI assumptions'],
+ ['k_disc','Discount rate (cost of capital)',0.08,'ratio',0],
+ ['k_labEsc','Labour cost inflation / yr',0.035,'ratio',0],
+ ['k_rentEsc','Rent inflation / yr',0.025,'ratio',0],
+ ['k_ramp','Year-1 benefit ramp-up',0.75,'× steady state',0],
+ ['n_fteHrs','Paid hours per FTE / yr',1720,'hrs',0],
  ['G','Labour & running costs'],
  ['k_indirect','Indirect labour uplift (supervision, admin)',0.15,'ratio',0],
  ['k_absence','Absence / holiday cover for headcount',0.12,'ratio',0],
@@ -497,6 +537,10 @@ const SOURCES = {
  S20:['US BLS – Warehousing & storage wages (material movers median $22.06/hr)','https://www.bls.gov/iag/tgs/iag493.htm'],
  S21:['Cosmo Sourcing – Mexico wages 2026 (employer cost $3.50–5.50/hr; border minimum MXN 440.87/day)','https://www.cosmosourcing.com/blog/mexico-manufacturing-wages-labor-costs'],
  S22:['ECB euro reference rates, 16 Nov 2026 (USD 1.1014, GBP 0.8345, PLN 4.403, HUF 364.35, MXN 20.44 per €)','https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html'],
+ S24:['GARBE Pyramid Map H1 2025 (European prime logistics rent €7.42/m²/month)','https://www.garbe-industrial.de/en/garbe-pyramid-map-rental-trend-on-european-logistics-real-estate-market-remains-stable-modest-growth-forecast-through-2030/'],
+ S25:['European logistics real estate Sept 2025 update (NL €95, PL €45 per m²/yr)','https://blog.gettransport.com/european-logistics-real-estate-sept-2025-market-update'],
+ S26:['CBRE Q3 2026 US industrial & logistics (net asking rent $11.16/ft², +3.6% YoY)','https://www.cbre.com/insights/figures/q3-2026-us-industrial-and-logistics-market-report'],
+ S27:['Pincali – Mexicali industrial rental listings (≈ $7/m²/month)','https://www.pincali.com/en/properties/industrial-buildings-for-rent-in-baja-california?page=3'],
  S23:['Industrial mobile robot prices 2026 (pallet AMR AUD 100–200k; integration +30–60%)','https://img0.medicalsearch.com.au/industrial-mobile-robot-prices-australia-2026-labour-payback-for-warehouse-and-manufacturing-automation/f/27708'],
 };
 // confidence: H official statistic · M several published benchmarks agree · L single/indirect source or engineering assumption
@@ -542,6 +586,17 @@ const RATE_SRC = {
  lab_hu:['M','€15.2/hr whole-economy (Eurostat 2025) × ~62% (assumption)','S18,S22'],
  lab_us:['H','BLS median $22.06/hr × ~1.3 benefits load','S20'],
  lab_mx:['M','Employer cost $3.50–5.50/hr for entry-level operators','S21'],
+ rent_uk:['L','No free UK figure found; set above the €89 European prime average to reflect UK prime rents – check with an agent','S24'],
+ rent_de:['M','European prime average €7.42/m²/month (≈ €89/yr ≈ $99) used as a German proxy','S24'],
+ rent_nl:['M','Netherlands prime rent €95/m²/yr','S25'],
+ rent_pl:['M','Poland prime rent €45/m²/yr','S25'],
+ rent_hu:['L','No direct figure; CEE allowance between Poland and the European average',''],
+ rent_us:['H','CBRE Q3 2026 US average net asking rent $11.16/ft²/yr','S26'],
+ rent_mx:['M','Mexicali listings ~$6.90–7.20/m²/month','S27'],
+ k_disc:['L','Typical corporate hurdle / WACC assumption – use your finance team\'s rate',''],
+ k_labEsc:['L','Wage growth assumption',''],
+ k_rentEsc:['M','European logistics rents rose ~4.5% in 2025; US ~2.9–3.6% YoY. 2.5% used as a long-run assumption','S26'],
+ k_ramp:['L','Automation rarely hits full rate in year 1 – ramp-up assumption',''],
  eq_pl:['L','Local racking supply ~5% cheaper (assumption)',''],
  eq_hu:['L','Local racking supply ~3% cheaper (assumption)',''],
  eq_mx:['L','+8% import duty and freight on equipment (assumption)',''],
@@ -591,7 +646,7 @@ const LVL = {m:'Manual',s:'Semi',a:'Auto'};
 const DEF_DEMAND = Object.assign(Object.fromEntries(DEMAND.map(d=>[d[0],d[2]])),Object.fromEntries(PROFILE.map(p=>[p[0],p[3]])));
 const DEF_RATES = Object.fromEntries(RATES.filter(r=>r[0]!=='G').map(r=>[r[0],r[2]]));
 const DEF_DESIGN = {pallet:'vna',small:'autostore',transport:'amr',sorter:'popup',convAuto:true,conv:{m:200,spirals:0,diverts:6}};
-function fresh(){return {name:'',meta:{},layout:{for:'mine',flow:'auto'},cur:'$',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
+function fresh(){return {name:'',meta:{},roi:{base:'Manual',other:0,curFte:0,curArea:0,curRun:0},layout:{for:'mine',flow:'auto'},cur:'$',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
 let S = fresh();
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
@@ -1059,7 +1114,7 @@ function renderAdmin(){
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const cur=()=>S.cur;
 function money(v,short=true){
-  const c=cur(); if(!isFinite(v)) return '–';
+  const c=cur(); if(!isFinite(v)) return '–'; if(v<0) return '−'+money(-v,short);
   const a=Math.abs(v);
   if(short){ if(a>=1e9) return c+(v/1e9).toFixed(2)+'bn'; if(a>=1e6) return c+(v/1e6).toFixed(a>=1e7?1:2)+'m'; if(a>=1e4) return c+Math.round(v/1e3)+'k'; }
   return c+Math.round(v).toLocaleString();
@@ -1156,7 +1211,7 @@ function refresh(){
   const r=calc(S.design,S.demand,S.rates); last=r;
   $('#t-pal').textContent=PALLET[S.design.pallet].n; $('#t-sm').textContent=SMALL[S.design.small].n;
   $('#convNote').textContent=S.design.convAuto?`Auto estimate: ${n0(r.convLen)} m of tote/carton conveyor.`:'';
-  renderResults(r); renderCompare(); renderLayoutTab(); renderReviewBanner(); persist();
+  renderResults(r); renderCompare(); renderLayoutTab(); renderReviewBanner(); renderROI(); persist();
 }
 function renderRec(){
   const D=S.demand, names={pallet:['Pallet storage',PALLET],small:['Small parts & picking',SMALL],transport:['Pallet transport',TRANSPORT],sorter:['Sortation',SORTER]};
@@ -1280,7 +1335,7 @@ function renderCompare(){
 }
 
 /* ===================== PROJECTS (cloud db, local fallback) ===================== */
-function applyState(st){S=Object.assign(fresh(),st);S.demand={...DEF_DEMAND,...st.demand};S.design={...DEF_DESIGN,...st.design,conv:{...DEF_DESIGN.conv,...(st.design||{}).conv}};S.layout={for:'mine',flow:'auto',...(st.layout||{})};S.meta={...(st.meta||{})};if(!REGIONS[S.demand.region])S.demand.region='uk';syncLib();init()}
+function applyState(st){S=Object.assign(fresh(),st);S.demand={...DEF_DEMAND,...st.demand};S.design={...DEF_DESIGN,...st.design,conv:{...DEF_DESIGN.conv,...(st.design||{}).conv}};S.layout={for:'mine',flow:'auto',...(st.layout||{})};S.meta={...(st.meta||{})};S.roi={base:'Manual',other:0,curFte:0,curArea:0,curRun:0,...(st.roi||{})};if(!REGIONS[S.demand.region])S.demand.region='uk';syncLib();init()}
 function openSheet(t){$('#jsonBox').value=t;$('#sheet').classList.add('on')}
 $('#exportJson').onclick=()=>openSheet(JSON.stringify(S,null,1));
 $('#copyJson').onclick=()=>copy($('#jsonBox').value);
@@ -1413,11 +1468,119 @@ Concept-stage estimate (range −25% / +40%) from RackRight benchmark rates (US$
 };
 
 
+
+/* ===================== ROI ===================== */
+function roiOpts(){S.roi={base:'Manual',other:0,curFte:0,curArea:0,curRun:0,...(S.roi||{})};return S.roi}
+function roiBaseline(o){
+  const D=S.demand,R=S.rates,fx=S.fx||1,rg=regionFactors(D,R);
+  if(o.base==='current'){
+    const lab=o.curFte*R.n_fteHrs*rg.lab*fx;
+    return {name:'Current operation',capex:0,labCost:lab,maint:o.curRun,totArea:o.curArea,fte:o.curFte,opex:lab+o.curRun};
+  }
+  const c=concepts(D,R)[o.base]||concepts(D,R).Manual;const r=calc(c,D,R);
+  return {name:o.base+' concept',capex:r.capex,labCost:r.labCost,maint:r.maint,totArea:r.totArea,fte:r.fte,opex:r.opex};
+}
+function roiCalc(o,mod={}){
+  const D=S.demand,R=S.rates,fx=S.fx||1,rg=regionFactors(D,R),rent=(R['rent_'+rg.k]??R.rent_uk)*fx;
+  const d=last,b=roiBaseline(o);
+  const cx=mod.capex||1,bx=mod.benefit||1,lx=mod.labour||1;
+  const invest=(o.base==='current'?d.capex:d.capex-b.capex)*cx;
+  const lab=(b.labCost-d.labCost)*lx*bx, space=(b.totArea-d.totArea)*rent*bx, maint=(b.maint-d.maint)*bx, other=(o.other||0)*bx;
+  const N=R.n_tco, years=[]; let cum=-invest, npv=-invest, pay=null;
+  for(let y=1;y<=N;y++){
+    const ramp=y===1?R.k_ramp:1;
+    const ben=ramp*(lab*Math.pow(1+R.k_labEsc,y-1)+space*Math.pow(1+R.k_rentEsc,y-1)+maint+other);
+    const prev=cum; cum+=ben; npv+=ben/Math.pow(1+R.k_disc,y);
+    if(pay===null&&invest>0&&prev<0&&cum>=0) pay=y-1+(-prev)/ben;
+    years.push({y,ben,cum});
+  }
+  const cfs=[-invest,...years.map(x=>x.ben)];
+  const npvAt=r=>cfs.reduce((a,c,i)=>a+c/Math.pow(1+r,i),0);
+  let irr=null; if(invest>0&&npvAt(-0.9)*npvAt(5)<0){let lo=-0.9,hi=5;for(let i=0;i<80;i++){const m=(lo+hi)/2;(npvAt(lo)*npvAt(m)<=0)?hi=m:lo=m}irr=(lo+hi)/2}
+  const totBen=years.reduce((a,x)=>a+x.ben,0);
+  return {b,invest,lab,space,maint,other,annual:lab+space+maint+other,years,npv,irr,pay,totBen,roi:invest>0?(totBen-invest)/invest:null,N,rent};
+}
+const pct=v=>v==null?'–':(v*100).toFixed(0)+'%';
+const yrs=v=>v==null?'not within horizon':v.toFixed(1)+' yrs';
+function renderROI(){
+  const o=roiOpts(); if(!last) return;
+  const sel=$('#roiBase'); const opts={Manual:'Manual concept',Mechanised:'Mechanised concept',current:'Current operation (enter below)'};
+  sel.innerHTML=Object.entries(opts).map(([k,v])=>`<option value="${k}" ${o.base===k?'selected':''}>${v}</option>`).join('');
+  $('#roiCurBox').style.display=o.base==='current'?'grid':'none';
+  [['roiOther','other'],['roiCurFte','curFte'],['roiCurArea','curArea'],['roiCurRun','curRun']].forEach(([id,k])=>{const el=$('#'+id);if(document.activeElement!==el)el.value=o[k]||''});
+  const R=S.rates, x=roiCalc(o), b=x.b, N=x.N;
+  // KPIs
+  const k=[
+    [o.base==='current'?'Investment':'Extra investment',money(x.invest),`vs ${b.name}`,1],
+    ['Annual benefit',money(x.annual),'steady state, year 2'],
+    ['Payback',x.invest<=0?'Immediate':yrs(x.pay),x.invest<=0?'design costs less upfront':'simple, undiscounted'],
+    [`NPV @ ${pct(R.k_disc)}`,money(x.npv),`${N}-year horizon`],
+    ['IRR',x.irr==null?'–':pct(x.irr),`${N}-year horizon`],
+    [`${N}-yr ROI`,x.roi==null?'–':pct(x.roi),`${money(x.totBen)} benefits`],
+  ];
+  $('#roiKpis').innerHTML=k.map(([l,v,s,h])=>`<div class="kpi ${h?'hero':''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  // cash flow chart
+  const W=400,H=230,pl=52,pr=8,pt=12,pb=26;
+  const vals=[-x.invest,...x.years.map(y=>y.cum)], bens=x.years.map(y=>y.ben);
+  const mx=Math.max(0,...vals,...bens), mn=Math.min(0,...vals);
+  const span=(mx-mn)||1, X=i=>pl+(W-pl-pr)*i/N, Y=v=>pt+(H-pt-pb)*(mx-v)/span;
+  let g='';
+  for(let i=0;i<=4;i++){const v=mn+span*i/4;g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e2e0d9"/><text x="${pl-5}" y="${Y(v)+4}" text-anchor="end" font-size="10" fill="#6a6f78" font-family="IBM Plex Mono,monospace">${money(v)}</text>`}
+  g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="#1c1f24" stroke-width="1.2"/>`;
+  const bw=(W-pl-pr)/N*0.45;
+  x.years.forEach((y,i)=>{const cx=X(i+1);g+=`<rect x="${cx-bw/2}" y="${Math.min(Y(y.ben),Y(0))}" width="${bw}" height="${Math.abs(Y(0)-Y(y.ben))}" fill="${y.ben>=0?'#7a9e7e':'#c4693d'}" opacity=".55"/>`});
+  if(x.invest>0) g+=`<rect x="${X(0)-bw/2+bw/2}" y="${Y(0)}" width="${bw}" height="${Y(-x.invest)-Y(0)}" fill="#c4693d" opacity=".55"/>`;
+  g+=`<polyline points="${vals.map((v,i)=>X(i)+','+Y(v)).join(' ')}" fill="none" stroke="#1f3a5f" stroke-width="2.5"/>`;
+  vals.forEach((v,i)=>g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#1f3a5f"/>`);
+  if(x.pay!=null&&x.pay<=N){const px=X(x.pay);g+=`<line x1="${px}" x2="${px}" y1="${pt}" y2="${H-pb}" stroke="#e0a000" stroke-width="2" stroke-dasharray="5 4"/><text x="${px>W-90?px-4:px+4}" text-anchor="${px>W-90?'end':'start'}" y="${pt+10}" font-size="10.5" font-weight="700" fill="#7a5600" font-family="IBM Plex Sans,sans-serif">Payback ${x.pay.toFixed(1)} yrs</text>`}
+  for(let i=0;i<=N;i++) g+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#6a6f78" font-family="IBM Plex Mono,monospace">${i}</text>`;
+  $('#roiCf').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Cumulative cash flow">${g}</svg>`;
+  $('#roiCfLeg').innerHTML='<span><i style="background:#1f3a5f"></i>Cumulative position</span><span><i style="background:#7a9e7e"></i>Annual benefit</span><span><i style="background:#c4693d"></i>Investment / net cost</span><span><i style="background:#e0a000"></i>Break-even</span>';
+  $('#roiCfHint').textContent=`Year 0 is the investment; years 1–${N} add the net benefit (year 1 at ${pct(R.k_ramp)} ramp-up, labour +${(R.k_labEsc*100).toFixed(1)}%/yr, rent +${(R.k_rentEsc*100).toFixed(1)}%/yr).`;
+  // investment vs benefits
+  const ivb=[['Investment',x.invest,'#c4693d'],[`Benefits, ${N} yrs`,x.totBen,'#7a9e7e'],['Net gain',x.totBen-x.invest,(x.totBen-x.invest)>=0?'#1f3a5f':'#b3412e']];
+  const m2=Math.max(...ivb.map(v=>Math.abs(v[1])))||1;
+  $('#roiIvB').innerHTML=ivb.map(([l,v,c])=>`<div class="row"><span class="t">${l}</span><div class="bar" style="background:#f0efe9"><div style="width:${Math.abs(v)/m2*100}%;background:${c}"></div></div><span class="v">${money(v)}</span></div>`).join('');
+  // breakdown
+  const br=[['Labour',x.lab],['Space',x.space],['Maint. & running',x.maint],['Other',x.other]].filter(r=>r[1]!==0||r[0]==='Labour');
+  const m3=Math.max(...br.map(v=>Math.abs(v[1])))||1;
+  $('#roiBreak').innerHTML=br.map(([l,v])=>`<div class="row"><span class="t">${l}</span><div class="bar" style="background:#f0efe9"><div style="width:${Math.abs(v)/m3*100}%;background:${v>=0?'#7a9e7e':'#c4693d'}"></div></div><span class="v" style="color:${v>=0?'inherit':'var(--bad)'}">${v<0?'−':''}${money(Math.abs(v))}</span></div>`).join('');
+  // sensitivity
+  const cases=[['Base case',{}],['Capex +20%',{capex:1.2}],['Benefits −20%',{benefit:0.8}],['Labour cost +20%',{labour:1.2}],['Capex +20% & benefits −20%',{capex:1.2,benefit:0.8}]];
+  let st='<tr><th>Scenario</th><th class="r">Payback</th><th class="r">NPV</th><th class="r">IRR</th></tr>';
+  cases.forEach(([n,m])=>{const c=roiCalc(o,m);st+=`<tr><td>${n}</td><td class="r num">${c.invest<=0?'Immediate':c.pay==null?'> '+N+' yrs':c.pay.toFixed(1)+' yrs'}</td><td class="r num" style="color:${c.npv>=0?'var(--good)':'var(--bad)'}">${money(c.npv)}</td><td class="r num">${c.irr==null?'–':pct(c.irr)}</td></tr>`});
+  $('#roiSens').innerHTML=st;
+  // year table
+  let yt='<tr><th>Year</th><th class="r">Benefit</th><th class="r">Cumulative</th></tr>';
+  yt+=`<tr><td>0</td><td class="r num">${money(-x.invest)}</td><td class="r num">${money(-x.invest)}</td></tr>`;
+  x.years.forEach(y=>yt+=`<tr><td>${y.y}</td><td class="r num">${money(y.ben)}</td><td class="r num" style="color:${y.cum>=0?'var(--good)':'inherit'}">${money(y.cum)}</td></tr>`);
+  $('#roiTbl').innerHTML=yt;
+  // analysis
+  const a=[], f=n0;
+  if(x.invest<=0&&x.annual>=0) a.push(['No-regret option',`Your design costs ${money(-x.invest)} less upfront than the ${b.name} and also saves ${money(x.annual)} a year.`]);
+  else if(x.invest<=0) a.push(['Cheaper upfront, dearer to run',`It saves ${money(-x.invest)} in capex but costs ${money(-x.annual)} a year more to run than the ${b.name}.`]);
+  else if(x.annual<=0) a.push(['No payback',`The design costs ${money(x.invest)} more than the ${b.name} and doesn't save running cost, so it never pays back on these numbers. Look at the throughput, space or service benefits it buys, or a lower-capex option.`]);
+  else {
+    const verdict=x.pay==null?`doesn't pay back within ${N} years`:x.pay<=3?`pays back in ${x.pay.toFixed(1)} years – strong, inside a typical 3-year automation hurdle`:x.pay<=5?`pays back in ${x.pay.toFixed(1)} years – acceptable against a typical 3–5-year hurdle`:`pays back in ${x.pay.toFixed(1)} years – slow; most boards want 3–5 years`;
+    a.push(['Headline',`An extra ${money(x.invest)} over the ${b.name} returns ${money(x.annual)} a year and ${verdict}. NPV at ${pct(R.k_disc)} is ${money(x.npv)}${x.irr!=null?`, IRR ${pct(x.irr)}`:''}.`]);
+  }
+  const pos=[['labour',x.lab],['space',x.space],['maintenance & running',x.maint],['other benefits',x.other]].filter(v=>v[1]>0), tot=pos.reduce((s2,v)=>s2+v[1],0);
+  if(tot>0){const top=pos.sort((p,q)=>q[1]-p[1])[0];a.push(['What drives it',`${top[0][0].toUpperCase()+top[0].slice(1)} is ${pct(top[1]/tot)} of the gross benefit${x.lab>0?` – about ${f(b.fte-last.fte)} FTE fewer (${f(last.fte)} vs ${f(b.fte)})`:''}.${x.space>0?` Space saving of ${f(b.totArea-last.totArea)} m² is worth ${money(x.space)}/yr at ${money(x.rent,false)}/m².`:''}`])}
+  if(x.maint<0) a.push(['Running cost',`Maintenance, service contracts and robot software add ${money(-x.maint)} a year compared with the baseline – already netted off the benefit.`]);
+  const worst=roiCalc(o,{capex:1.2,benefit:0.8});
+  if(x.invest>0&&x.annual>0) a.push(['Risk',worst.npv>=0?`It still has a positive NPV (${money(worst.npv)}) with capex 20% over and benefits 20% short, so the case is robust.`:`With capex 20% over and benefits 20% short the NPV turns negative (${money(worst.npv)}). Firm up supplier quotes and labour assumptions before committing.`]);
+  if(regionFactors(S.demand,R).lab<15&&x.invest>0) a.push(['Labour cost',`Labour in ${regionOf(S.demand).n} is ${money(regionFactors(S.demand,R).lab*S.fx,false)}/hr, so automation has to be justified on space, capacity, quality or labour availability more than wage savings.`]);
+  a.push(['Not included',`Throughput headroom, accuracy, safety, staff availability and tax allowances aren't modelled. Put a value on them in “Other annual benefits” if you have one.`]);
+  $('#roiText').innerHTML=a.map(([t,bb])=>`<li><b>${t}</b>${bb}</li>`).join('');
+}
+$('#roiBase').addEventListener('change',e=>{roiOpts().base=e.target.value;renderROI();persist()});
+[['roiOther','other'],['roiCurFte','curFte'],['roiCurArea','curArea'],['roiCurRun','curRun']].forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{roiOpts()[k]=parseFloat(e.target.value)||0;renderROI();persist()}));
+
 /* ===================== REVIEW SUBMISSION ===================== */
 const b64u={enc:u8=>{let s='';u8.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
   dec:t=>{t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const s=atob(t);return Uint8Array.from(s,c=>c.charCodeAt(0))}};
 async function packReview(){
-  const o={v:1,name:S.name,meta:S.meta,demand:S.demand,design:S.design,layout:S.layout};
+  const o={v:1,name:S.name,meta:S.meta,demand:S.demand,design:S.design,layout:S.layout,roi:S.roi};
   const raw=new TextEncoder().encode(JSON.stringify(o));
   try{const cs=new CompressionStream('deflate-raw');const out=await new Response(new Blob([raw]).stream().pipeThrough(cs)).arrayBuffer();return 'z'+b64u.enc(new Uint8Array(out))}catch(e){return 'j'+b64u.enc(raw)}
 }
@@ -1448,6 +1611,7 @@ Design: ${PALLET[d.pallet].n}; ${SMALL[d.small].n}; ${TRANSPORT[d.transport].n};
 Capex: ${money(r.capex,false)} (range ${money(r.capex*0.75)}-${money(r.capex*1.4)})
 Annual opex: ${money(r.opex,false)}
 Footprint: ${n0(r.totArea)} m2 · ${n0(r.fte)} FTE
+${(()=>{const x=roiCalc(roiOpts());return `ROI vs ${x.b.name}: extra investment ${money(x.invest)}, benefit ${money(x.annual)}/yr, payback ${x.invest<=0?'immediate':x.pay==null?'beyond '+x.N+' yrs':x.pay.toFixed(1)+' yrs'}, NPV ${money(x.npv)}`})()}
 
 Notes: ${m.notes||'-'}
 
@@ -1474,7 +1638,7 @@ async function openReviewFromHash(){
     const o=await unpackReview(h.slice(8));
     try{history.replaceState(null,'',location.pathname+'#results')}catch(e){}
     CUR_ID=uid();store('whs_cur',CUR_ID);
-    applyState({name:'[Review] '+((o.meta&&o.meta.customer)||o.name||'Design')+(o.meta&&o.meta.rep?' – '+o.meta.rep:''),meta:{...(o.meta||{}),review:true},demand:o.demand,design:o.design,layout:o.layout});
+    applyState({name:'[Review] '+((o.meta&&o.meta.customer)||o.name||'Design')+(o.meta&&o.meta.rep?' – '+o.meta.rep:''),meta:{...(o.meta||{}),review:true},demand:o.demand,design:o.design,layout:o.layout,roi:o.roi});
     saveNow();go('results');toast('Review submission opened as a new project');return true;
   }catch(e){toast("That review link couldn't be opened");return false}
 }
@@ -1494,7 +1658,7 @@ syncLib();
 init();
 initStore();
 loadLib().then(()=>openReviewFromHash());
-const h=(location.hash||'').slice(1); if(['projects','demand','design','results','layout','compare','rates'].includes(h)) go(h);
+const h=(location.hash||'').slice(1); if(['projects','demand','design','results','layout','compare','roi','rates'].includes(h)) go(h);
 </script>
 </body>
 </html>
