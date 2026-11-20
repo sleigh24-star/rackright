@@ -191,7 +191,9 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
     <div class="opts" id="o-sorter"></div>
   </div>
   <div class="card">
-    <h2>Conveyors</h2>
+    <h2>Tote transport &amp; conveyors</h2>
+    <p class="hint">How totes and cartons move from picking to packing and on to the sorter.</p>
+    <div class="opts" id="o-intt" style="margin-bottom:10px"></div>
     <label class="toggle"><input type="checkbox" id="convAuto" checked> Estimate conveyor lengths automatically from the design</label>
     <div class="grid" id="g-conv"></div>
     <p class="note" id="convNote"></p>
@@ -442,6 +444,11 @@ const RATES = [
  ['G','Transport, conveyors & sortation'],
  ['c_palAmr','Pallet AMR',99000,'each',1],
  ['c_fleet','AMR fleet manager software',92000,'fixed',1],
+ ['c_toteAmr','Tote-carrying AMR',40000,'each',1],
+ ['n_convSwitch','Switch-over: conveyor above (containers / hr at peak)',450,'/hr',0],
+ ['m_amrTrip','Tote AMR trip, one-way',40,'m',0],
+ ['p_amrHandle','Tote AMR load + unload time',30,'s',0],
+ ['n_totesTrip','Totes / cartons per AMR trip',4,'totes',0],
  ['c_conv','Tote / carton conveyor (avg)',1250,'/m',1],
  ['c_spiral','Spiral / vertical conveyor',79000,'each',1],
  ['c_divert','Merge / divert unit',10500,'each',1],
@@ -571,6 +578,8 @@ const RATE_SRC = {
  p_asBot:['M','Kardex rule of thumb ~30 bins/robot/hr; 40 used as an actual-volume planning rate','S6'],
  c_palAmr:['M','OTTO 1500 ~$80k; pallet AMRs AUD 100–200k (≈ $65–130k)','S12,S23'],
  c_fleet:['L','Fleet manager and site integration; integration adds 30–60% to unit cost on small fleets','S23'],
+ c_toteAmr:['M','Tote-carrying AMRs $20–45k incl. software; $40k for a heavier-duty tote / carton robot','S9,S10'],
+ n_convSwitch:['L','Rule of thumb: below ~400–500 containers/hr tote AMRs usually beat fixed conveyor on capex, lead time and flexibility; above it conveyor is cheaper per move',''],
  c_conv:['M','Powered roller $500–3,000 per metre; $1,250 mid-range MDR','S13'],
  c_xbBase:['L','Calibrated so a 20,000/hr loop ≈ $3.3m, consistent with ~$3m+ systems','S14'],
  c_xbRate:['L','See base','S14'],
@@ -624,6 +633,11 @@ const TRANSPORT = {
  amr:{n:'Pallet AMRs',d:'Autonomous mobile robots',l:'a'},
  none:{n:'Not needed',d:'',l:'m'}
 };
+const INTT = {
+ auto:{n:'Auto by volume',d:'Tote AMRs below the switch-over rate, conveyor above',l:'s'},
+ conveyor:{n:'Conveyor',d:'Fixed tote / carton conveyor',l:'a'},
+ amr:{n:'Tote AMRs',d:'Mobile robots carry totes and cartons',l:'a'},
+};
 const SORTER = {
  none:{n:'Manual sort',d:'Staff build routes',l:'m'},
  popup:{n:'Pop-up wheel',d:'≤ ~5,000 items/hr',l:'s'},
@@ -645,7 +659,7 @@ const LVL = {m:'Manual',s:'Semi',a:'Auto'};
 /* ===================== STATE ===================== */
 const DEF_DEMAND = Object.assign(Object.fromEntries(DEMAND.map(d=>[d[0],d[2]])),Object.fromEntries(PROFILE.map(p=>[p[0],p[3]])));
 const DEF_RATES = Object.fromEntries(RATES.filter(r=>r[0]!=='G').map(r=>[r[0],r[2]]));
-const DEF_DESIGN = {pallet:'vna',small:'autostore',transport:'amr',sorter:'popup',convAuto:true,conv:{m:200,spirals:0,diverts:6}};
+const DEF_DESIGN = {pallet:'vna',small:'autostore',transport:'amr',sorter:'popup',intTransport:'auto',convAuto:true,conv:{m:200,spirals:0,diverts:6}};
 function fresh(){return {name:'',meta:{},roi:{base:'Manual',other:0,curFte:0,curArea:0,curRun:0},layout:{for:'mine',flow:'auto'},cur:'$',fx:1,demand:{...DEF_DEMAND},rates:{...DEF_RATES},design:JSON.parse(JSON.stringify(DEF_DESIGN))}}
 let S = fresh();
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -776,10 +790,21 @@ function calc(design, D, R){
   }
   if(design.small==='shelfamr' && tp!=='amr') add('Software & controls','AMR fleet manager',1,'lot',M('c_fleet'));
 
-  /* ---- Conveyors ---- */
+  /* ---- Conveyors or tote AMRs (ports → pack → sort) ---- */
   const gtp=['acr','shuttle','autostore'].includes(st);
+  const intMode=design.intTransport||'auto', totesPk=ordPk;   // one order container per order at peak
+  const legs=(gtp?1:0)+(design.sorter!=='none'?1:0);         // port→pack, pack→sorter
+  const needInt=legs>0||st==='shelfamr';
+  const useAmr=needInt&&(intMode==='amr'||(intMode==='auto'&&design.convAuto&&totesPk<=R.n_convSwitch));
+  const perBot=3600/(2*R.m_amrTrip/1.0+R.p_amrHandle)*0.8*Math.max(1,R.n_totesTrip||1);
+  const toteBots=useAmr?ceil(totesPk*Math.max(1,legs)/perBot)+1:0;
   let cm=0,sp=0,dv=0;
-  if(design.convAuto){
+  if(useAmr){
+    if(design.sorter!=='none') cm=25;   // sorter induction still needs a short conveyor
+    add('Automation & robotics',`Tote AMRs (${legs>1?'port → pack → sort':gtp?'port → pack':'pack → sort'}, incl. 1 spare)`,toteBots,'each',M('c_toteAmr'));
+    if(design.transport!=='amr'&&st!=='shelfamr') add('Software & controls','AMR fleet manager',1,'lot',M('c_fleet'));
+    robots.n+=toteBots; chargeVeh+=toteBots;
+  } else if(design.convAuto){
     if(gtp) cm+=ports*12+40;
     if(st==='shelfamr') cm+=40;
     if(design.sorter!=='none') cm+=60;
@@ -790,6 +815,7 @@ function calc(design, D, R){
   add('Conveyors & sortation','Spirals / verticals',sp,'each',M('c_spiral'));
   add('Conveyors & sortation','Merges / diverts',dv,'each',M('c_divert'));
   const convLen=cm;
+  const intInfo={mode:useAmr?'amr':(needInt?'conveyor':'none'),totesPk,bots:toteBots,threshold:R.n_convSwitch,legs};
 
   /* ---- Sortation ---- */
   const so=design.sorter, dests=D.destinations;
@@ -838,7 +864,7 @@ function calc(design, D, R){
     sort:so==='none'?dests*12:so==='popup'?(dests/2*2.2+25)*10:(dests/2*1.6+45)*16,
   };
   Z.misc=Object.values(Z).reduce((a,b)=>a+b,0)*R.k_misc+(mhe.n+chargeVeh)*R.m_charge;
-  const ctx={inDoors,outDoors,D,R,design,ports,convLen:cm,packStations:ceil(packPk)};
+  const ctx={inDoors,outDoors,D,R,design,ports,convLen:cm,packStations:ceil(packPk),intInfo};
   const plan=planLayout(Z,ctx,'auto');
   const totArea=plan.area;
   area.support=totArea-storeArea;
@@ -859,7 +885,7 @@ function calc(design, D, R){
   const opex=labCost+maint;
   const ordersYr=D.orders*D.days;
   return {L,lab,warn,area,totArea,byG,capex,labCost,maint,opex,avgHeads,pkHeads,fte,lph,lphAvg,pm,ordersYr,convLen,mhe:mhe.n,robots:robots.n,
-          perOrder:opex/ordersYr, automation:anyAuto, RG, Z, ctx, plan, inDoors, outDoors, ports};
+          perOrder:opex/ordersYr, automation:anyAuto, RG, intInfo, Z, ctx, plan, inDoors, outDoors, ports};
 }
 
 
@@ -885,7 +911,8 @@ function planLayout(Z,ctx,pref){
     col([['pallet',Z.pallet]]);
     if(Z.small>0){rects.push({k:'small',x,y:0,w:Z.small/Y,h:Y});x+=Z.small/Y}
     if(Z.gtp>0){const w=Math.max(6,Z.gtp/Y);rects.push({k:'gtp',x,y:0,w,h:Y});x+=w}
-    col([['pack',Z.pack],['sort',Z.sort]]);
+    col([['pack',Z.pack]],Z.pack>0?5:0);
+    col([['sort',Z.sort]],Z.sort>0?6:0);
     col([['outbound',Z.outbound]],R.m_marsh);
     L=x;W=Y;
   } else {
@@ -901,14 +928,66 @@ function planLayout(Z,ctx,pref){
         if(hg>0) rects.push({k:'gtp',x:wp,y:y+h-hg,w:ws,h:hg});}
       y+=h;
     }
-    const mid=[['recv',Z.recv],['misc',Z.misc],['pack',Z.pack],['sort',Z.sort]], mt=mid.reduce((a,i)=>a+i[1],0);
-    const hm=mt/X; let x=0; mid.forEach(([k,a])=>{const w=X*a/mt;rects.push({k,x,y,w,h:hm});x+=w}); y+=hm;
+    const mt=Z.recv+Z.misc+Z.pack+Z.sort, hm=mt/X, W_=a=>X*a/mt;
+    const g=rects.find(r=>r.k==='gtp')||rects.find(r=>r.k==='small');
+    const gx=g?g.x+g.w/2:X*0.75;
+    // try orders that keep receiving next to inbound and sort beside pack; pick pack closest to the port face
+    const orders=[[['recv',Z.recv],['misc',Z.misc],['sort',Z.sort],['pack',Z.pack]],[['recv',Z.recv],['sort',Z.sort],['pack',Z.pack],['misc',Z.misc]],[['misc',Z.misc],['recv',Z.recv],['sort',Z.sort],['pack',Z.pack]]];
+    let best=null;
+    orders.forEach(o=>{let x=0,pc=0;o.forEach(([k,a])=>{if(k==='pack')pc=x+W_(a)/2;x+=W_(a)});const sc=Math.abs(pc-gx);if(!best||sc<best.sc)best={o,sc}});
+    let x=0; best.o.forEach(([k,a])=>{const w=W_(a);if(w>0)rects.push({k,x,y,w,h:hm});x+=w}); y+=hm;
     const wi=X*ctx.inDoors/td;
     rects.push({k:'inbound',x:0,y,w:wi,h:R.m_marsh});
     rects.push({k:'outbound',x:wi,y,w:X-wi,h:R.m_marsh});
     y+=R.m_marsh; L=X;W=y;
   }
   return {flow,autoFlow,why,L,W,area:L*W,rects};
+}
+
+// Orthogonal tote routes that follow the material flow, as a conveyor or AMR path would be laid out:
+// collection lines along the port face merge at the point nearest packing, then one main line runs
+// pack → sorter → outbound with right-angle turns and no back-tracking.
+function flowRoute(plan,d){
+  const rc=k=>plan.rects.find(r=>r.k===k), gr=rc('gtp'), sr=rc('small'), pk=rc('pack'), so=d.sorter!=='none'?rc('sort'):null, ob=rc('outbound');
+  if(!pk||!ob) return {main:[],feeds:[]};
+  const cx=r=>r.x+r.w/2, cy=r=>r.y+r.h/2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const feeds=[], main=[];
+  if(plan.flow==='through'){
+    const ym=plan.W/2;
+    if(gr){const gx=cx(gr);feeds.push([[gx,gr.y+2],[gx,ym]],[[gx,gr.y+gr.h-2],[gx,ym]]);main.push([gx,ym])}
+    else if(sr&&d.small==='shelfamr'){main.push([sr.x+sr.w-2,ym])}
+    else main.push([pk.x+1,ym]);
+    main.push([cx(pk),ym]);
+    if(so) main.push([cx(so),ym]);
+    main.push([ob.x+Math.min(ob.w*0.35,8),ym]);
+  } else {
+    const src=gr||(d.small==='shelfamr'?sr:null);
+    if(src){
+      const yb=src.y+src.h-1.5, mx=clamp(cx(pk),src.x+2,src.x+src.w-2);
+      if(gr){if(mx-gr.x>4)feeds.push([[gr.x+2,yb],[mx,yb]]);if(gr.x+gr.w-mx>4)feeds.push([[gr.x+gr.w-2,yb],[mx,yb]])}
+      main.push([mx,yb]); if(Math.abs(mx-cx(pk))>0.5) main.push([cx(pk),yb]);
+    }
+    main.push([cx(pk),cy(pk)]);
+    let x=cx(pk);
+    if(so){main.push([cx(so),cy(pk)]);x=cx(so)}
+    const xo=clamp(x,ob.x+3,ob.x+ob.w-3);
+    if(Math.abs(xo-x)>0.5){main.push([x,ob.y-1.5],[xo,ob.y-1.5])}
+    main.push([xo,ob.y+ob.h*0.35]);
+  }
+  const tidy=pts=>{const out=[];pts.forEach(p=>{const l=out[out.length-1];if(!l||Math.abs(l[0]-p[0])>0.01||Math.abs(l[1]-p[1])>0.01)out.push(p)});
+    return out.filter((p,i)=>{if(i===0||i===out.length-1)return true;const a=out[i-1],b=out[i+1];return !((Math.abs(a[0]-p[0])<0.01&&Math.abs(p[0]-b[0])<0.01)||(Math.abs(a[1]-p[1])<0.01&&Math.abs(p[1]-b[1])<0.01))})};
+  return {main:tidy(main),feeds:feeds.map(tidy)};
+}
+function segLen(P){let L=0;for(let i=1;i<P.length;i++)L+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return L}
+function pointAt(P,d){for(let i=1;i<P.length;i++){const l=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(d<=l){const t=l?d/l:0;return [P[i-1][0]+(P[i][0]-P[i-1][0])*t,P[i-1][1]+(P[i][1]-P[i-1][1])*t]}d-=l}return P[P.length-1]}
+function arrows(P,col){
+  const out=[];
+  for(let i=1;i<P.length;i++){
+    const [x1,y1]=P[i-1],[x2,y2]=P[i],l=Math.hypot(x2-x1,y2-y1);if(l<18)continue;
+    const ux=(x2-x1)/l,uy=(y2-y1)/l,mx=(x1+x2)/2,my=(y1+y2)/2,s=5;
+    out.push(`<path d="M${mx+ux*s},${my+uy*s} L${mx-ux*s-uy*s*0.8},${my-uy*s+ux*s*0.8} L${mx-ux*s+uy*s*0.8},${my-uy*s-ux*s*0.8}Z" fill="${col}"/>`);
+  }
+  return out;
 }
 function drawPlan(plan,ctx,vw=400){
   const s=vw/plan.L, vh=plan.W*s, d=ctx.design, R=ctx.R, D=ctx.D;
@@ -958,13 +1037,26 @@ function drawPlan(plan,ctx,vw=400){
     else { const cy=y+h/2; g.push(`<line x1="${x+m}" y1="${cy}" x2="${x+w-m}" y2="${cy}" stroke="#c4693d" stroke-width="3"/>`); const n=Math.min(D.destinations,24); for(let i=0;i<n;i++){const xx=x+m+(i+0.5)*(w-2*m)/n;g.push(`<line x1="${xx}" y1="${cy}" x2="${xx}" y2="${cy+(i%2?1:-1)*h*0.25}" stroke="#c4693d" stroke-width="1.5"/>`)} }
   }
   const ctr=r=>T(r.x+r.w/2,r.y+r.h/2);
-  // conveyor
-  if(ctx.convLen>0){
-    const pts=[gr||sr,rc('pack'),d.sorter!=='none'?so:null,rc('outbound')].filter(Boolean).map(ctr);
-    if(pts.length>1) g.push(`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#e08a00" stroke-width="2.5" stroke-linejoin="round"/>`);
+  // tote transport route: orthogonal, following the flow ports → pack → sort → outbound
+  const ii=ctx.intInfo||{mode:ctx.convLen>0?'conveyor':'none'};
+  const route=flowRoute(plan,d);
+  if(route.main.length>1&&ii.mode!=='none'){
+    const amr=ii.mode==='amr', col=amr?'#2e7d4f':'#e08a00';
+    const lines=[...route.feeds,route.main].filter(l=>l.length>1).map(l=>l.map(([x,y])=>T(x,y)));
+    const pl=(P,w,c,extra='')=>`<polyline points="${P.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
+    if(!amr) lines.forEach(P=>g.push(pl(P,6.5,'#fff','opacity=".9"')));
+    lines.forEach(P=>g.push(pl(P,amr?2.5:3.5,col,amr?'stroke-dasharray="7 5"':'')));
+    lines.forEach(P=>g.push(...arrows(P,col)));
+    if(amr){const P=lines[lines.length-1],n=Math.min(ii.bots,8),L=segLen(P);for(let i=0;i<n;i++){const [x,y]=pointAt(P,L*(i+0.5)/n);g.push(`<circle cx="${x}" cy="${y}" r="3.6" fill="#2e7d4f" stroke="#fff" stroke-width="1.2"/>`)}}
   }
-  // AMR route
-  if(d.transport==='amr'&&pr){const a=ctr(rc('inbound')),b=ctr(pr);g.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#2e7d4f" stroke-width="2.5" stroke-dasharray="6 4"/>`)}
+  // pallet AMR route: orthogonal from inbound into pallet storage
+  if(d.transport==='amr'&&pr){
+    const ib=rc('inbound'), a=[ib.x+ib.w/2,ib.y+ib.h/2];
+    const pts=plan.flow==='through'?[a,[pr.x+Math.min(pr.w*0.3,15),a[1]]]:[a,[Math.min(Math.max(a[0],pr.x+4),pr.x+pr.w-4),a[1]],[Math.min(Math.max(a[0],pr.x+4),pr.x+pr.w-4),pr.y+pr.h-3]];
+    const P=pts.map(([x,y])=>T(x,y));
+    g.push(`<polyline points="${P.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#2e7d4f" stroke-width="2.5" stroke-dasharray="6 4"/>`);
+    g.push(...arrows(P,'#2e7d4f'));
+  }
   // doors
   const doors=(r,n,side)=>{if(!r)return;for(let i=0;i<n;i++){
     if(side==='left'||side==='right'){const yy=r.y+(i+0.5)*r.h/n, [a,b]=T(side==='left'?r.x:r.x+r.w,yy);const dh=Math.max(2,R.m_door*0.75*s);g.push(`<rect x="${side==='left'?a-5:a}" y="${b-dh/2}" width="5" height="${dh}" fill="#1c1f24"/>`)}
@@ -1010,7 +1102,9 @@ function layoutAdvice(r,plan){
   if((d.small==='shelf'||d.small==='shelfamr')&&H>=7&&D.toteLoc>0){const t=H>=9?3:2;a.push(['Use the height',`Shelving only uses ~2.6 m of your ${H} m. A ${t}-tier pick mezzanine would cut the small-parts floor area by about ${Math.round((1-1/t)*100)}% (~${f(r.Z.small*(1-1/t))} m²). It adds lifts, stairs and fire protection to the cost.`])}
   const pr=plan.rects.find(x=>x.k==='pallet');
   if(pr&&g){const dist=Math.abs((pr.x+pr.w/2)-(g.x+g.w/2))+Math.abs((pr.y+pr.h/2)-(g.y+g.h/2));a.push(['Replenishment',`Put the small-parts decant / replen point on the side facing pallet reserve. Replen travel in this plan is ~${f(dist)} m one-way between zone centres.`])}
-  if(c.convLen>0) a.push(['Conveyors',`~${f(c.convLen)} m of tote / carton conveyor. Run it at high level or on a mezzanine where it crosses truck routes. Use fire-rated crossings through compartment walls and keep a maintenance walkway on one side.`]);
+  const ii=c.intInfo||{};
+  if(ii.mode==='amr') a.push(['Tote transport – AMRs',`At ${f(ii.totesPk)} containers/hr at peak (below the ${f(ii.threshold)}/hr switch-over), ${f(ii.bots)} tote AMRs replace fixed conveyor between ${ii.legs>1?'ports, packing and the sorter':'picking and packing'}. That keeps floors clear, needs no steelwork or fire-rated crossings, and lets you add robots for peak. Keep the AMR aisles ≥ 2 m, one-way where possible, with charging near packing.${c.convLen>0?` A short ${f(c.convLen)} m induction conveyor still feeds the sorter.`:''}`]);
+  else if(c.convLen>0) a.push(['Conveyors',`~${f(c.convLen)} m of tote / carton conveyor, laid out as take-aways along the port face that merge opposite packing, then one main line with right-angle turns into packing, on to the sorter and out to the doors – no back-tracking (arrows on the plan). Run it at high level where it crosses truck routes, use fire-rated crossings through compartment walls, and keep a maintenance walkway on one side.${ii.totesPk<=ii.threshold*1.3?` At ${f(ii.totesPk)} containers/hr you're close to the ${f(ii.threshold)}/hr switch-over, so price tote AMRs as an alternative.`:''}`]);
   if(d.sorter!=='none') a.push([`Sortation – ${SORTER[d.sorter].n}`,`Put the sorter alongside the outbound marshalling so chutes or cages finish at the doors. Allow ~${f(r.Z.sort)} m² for ${D.destinations} destinations.${d.sorter==='crossbelt'?' Put the induction stations on the packing side.':''}`]);
   else a.push(['Sortation – manual',`Build route cages in lanes that run straight to the doors (~${f(r.Z.sort)} m² for ${D.destinations} destinations).`]);
   if(d.transport==='amr') a.push(['Pallet AMRs','Give AMRs dedicated routes or 3.5 m two-way aisles separate from manual trucks, with charging next to receiving. Avoid slopes and dock-plate transitions on the routes.']);
@@ -1058,7 +1152,7 @@ function recommend(D,R){
   });
   return out;
 }
-function recDesign(rc){return {pallet:rc.pallet[0].k,small:rc.small[0].k,transport:rc.transport[0].k,sorter:rc.sorter[0].k,convAuto:true,conv:{...DEF_DESIGN.conv}}}
+function recDesign(rc){return {pallet:rc.pallet[0].k,small:rc.small[0].k,transport:rc.transport[0].k,sorter:rc.sorter[0].k,intTransport:'auto',convAuto:true,conv:{...DEF_DESIGN.conv}}}
 
 
 /* ===================== RATE LIBRARY (central, admin-only edits) ===================== */
@@ -1166,7 +1260,7 @@ function buildOpts(sel,defs,key){
 }
 function buildDesign(){
   buildOpts('#o-pallet',PALLET,'pallet');buildOpts('#o-small',SMALL,'small');
-  buildOpts('#o-transport',TRANSPORT,'transport');buildOpts('#o-sorter',SORTER,'sorter');
+  buildOpts('#o-transport',TRANSPORT,'transport');buildOpts('#o-sorter',SORTER,'sorter');buildOpts('#o-intt',INTT,'intTransport');
   $('#convAuto').checked=S.design.convAuto;
   const g=$('#g-conv');g.innerHTML='';
   [['m','Conveyor length (m)',10],['spirals','Spirals / verticals',1],['diverts','Merges / diverts',1]].forEach(([k,l,st])=>{
@@ -1210,7 +1304,8 @@ function refresh(){
   if(prevRec!==JSON.stringify(recDesign(REC))) buildDesign();
   const r=calc(S.design,S.demand,S.rates); last=r;
   $('#t-pal').textContent=PALLET[S.design.pallet].n; $('#t-sm').textContent=SMALL[S.design.small].n;
-  $('#convNote').textContent=S.design.convAuto?`Auto estimate: ${n0(r.convLen)} m of tote/carton conveyor.`:'';
+  const ii=r.intInfo;
+  $('#convNote').textContent=ii.mode==='amr'?`Tote AMRs: ${n0(ii.bots)} robots for ${n0(ii.totesPk)} containers/hr at peak (switch-over to conveyor at ${n0(ii.threshold)}/hr).${r.convLen>0?` Plus ${n0(r.convLen)} m of sorter induction conveyor.`:''}`:ii.mode==='conveyor'?`Conveyor: ${n0(r.convLen)} m for ${n0(ii.totesPk)} containers/hr at peak${S.design.intTransport==='auto'?` (above the ${n0(ii.threshold)}/hr switch-over)`:''}.`:'No tote transport needed for this design.';
   renderResults(r); renderCompare(); renderLayoutTab(); renderReviewBanner(); renderROI(); persist();
 }
 function renderRec(){
@@ -1280,8 +1375,10 @@ function renderLayoutTab(){
   $('#laySvg').innerHTML=drawPlan(plan,r.ctx);
   const leg=[...new Set(plan.rects.map(x=>x.k))].map(z=>`<span><i style="background:${ZN[z][1]}"></i>${ZN[z][0]}</span>`);
   leg.push('<span><i style="background:#1f3a5f"></i>Pallet racking</span>');
-  if(r.ctx.convLen>0) leg.push('<span><i style="background:#e08a00"></i>Conveyor</span>');
-  if(design.transport==='amr') leg.push('<span><i style="background:#2e7d4f"></i>AMR route</span>');
+  const iim=(r.intInfo||{}).mode;
+  if(iim==='conveyor') leg.push('<span><i style="background:#e08a00"></i>Conveyor (arrows show flow)</span>');
+  if(iim==='amr') leg.push('<span><i style="background:#2e7d4f"></i>Tote AMR route (dots = robots)</span>');
+  if(design.transport==='amr') leg.push('<span><i style="background:#2e7d4f"></i>Pallet AMR route</span>');
   leg.push('<span><i style="background:#1c1f24"></i>Dock doors / ports</span>');
   $('#layLeg').innerHTML=leg.join('');
   $('#layRecs').innerHTML=layoutAdvice(r,plan).map(([t,b])=>`<li><b>${t}</b>${b}</li>`).join('');
