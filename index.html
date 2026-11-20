@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RackRight – Warehouse Designer</title>
+<title>Ivy Warehouse Design Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -114,7 +114,7 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
 <body>
 <header>
   <div class="top">
-    <div><h1>Rack<span>Right</span> <small style="display:block;font-weight:500;font-size:10px;color:#c9d3e0;letter-spacing:.6px">WAREHOUSE DESIGNER</small></h1><span class="ss" id="saveState">Connecting…</span></div>
+    <div><h1><span style="color:#5fd38d">Ivy Warehouse</span> <small style="display:block;font-weight:600;font-size:10px;color:#5fd38d;letter-spacing:.6px">DESIGN TOOL</small></h1><span class="ss" id="saveState">Connecting…</span></div>
     <input class="proj" id="projName" placeholder="Project name" aria-label="Project name">
   </div>
   <nav id="nav">
@@ -199,7 +199,7 @@ textarea{width:100%;min-height:180px;font-family:"IBM Plex Mono",monospace;font-
   <div class="btns" style="margin-bottom:12px"><button class="btn d" data-go="results">See results →</button></div>
   <div class="card rec" id="submitCard">
     <h2>✉ Send for review</h2>
-    <p class="hint" id="submitHint">Fill in Demand and Design, add your details, then email the design for review. The email contains a summary and a link that opens this exact design in RackRight.</p>
+    <p class="hint" id="submitHint">Fill in Demand and Design, add your details, then email the design for review. The email contains a summary and a link that opens this exact design in the Ivy Warehouse Design Tool.</p>
     <div class="grid">
       <label class="f">Your name<input id="m_rep" autocomplete="name"></label>
       <label class="f">Your email<input id="m_email" type="email" autocomplete="email"></label>
@@ -1082,7 +1082,7 @@ function renderAdmin(){
   const src=LIB_SRC==='published'?`Published rates${LIB.updated?' · '+new Date(LIB.updated).toLocaleDateString('en-GB'):''}`:LIB_SRC==='draft'?'Admin draft – not yet published':'Built-in defaults';
   document.documentElement.classList.toggle('admin',ADMIN);
   if(!ADMIN){
-    box.innerHTML=`<h2>🔒 Rates are locked</h2><p class="hint">${src}. Only the admin can change rates. Everyone using RackRight gets the same library.</p>
+    box.innerHTML=`<h2>🔒 Rates are locked</h2><p class="hint">${src}. Only the admin can change rates. Everyone using the Ivy Warehouse Design Tool gets the same library.</p>
       <div class="grid" style="max-width:420px"><label class="f">${LIB.adminHash?'Admin PIN':'Set an admin PIN (first time)'}<input id="pin" type="password" inputmode="numeric" autocomplete="off"></label>${LIB.adminHash?'':'<label class="f">Confirm PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="off"></label>'}</div>
       <div class="btns" style="margin-top:10px"><button class="btn d" id="unlock">${LIB.adminHash?'Unlock':'Set PIN & unlock'}</button></div>`;
     $('#unlock').onclick=async()=>{const p=$('#pin').value.trim();if(p.length<4)return toast('PIN must be at least 4 characters');
@@ -1450,11 +1450,11 @@ $('#copyCsv').onclick=()=>{
   const q=v=>`"${String(v).replace(/"/g,'""')}"`;
   const rows=[['Group','Item','Qty','Unit','Rate','Cost ('+S.cur+')']].concat(last.L.map(x=>[x.g,x.item,+x.qty.toFixed(2),x.unit,x.unit==='base'?x.rate:+x.rate.toFixed(2),Math.round(x.cost)]));
   rows.push(['','Total capex','','','',Math.round(last.capex)]);
-  shareOrCopy('RackRight bill of quantities',rows.map(r=>r.map(q).join(',')).join('\n'));
+  shareOrCopy('Ivy Warehouse Design Tool – bill of quantities',rows.map(r=>r.map(q).join(',')).join('\n'));
 };
 $('#copySum').onclick=()=>{
   const r=last,d=S.design;
-  shareOrCopy('RackRight summary – '+(S.name||'Warehouse concept'),`${S.name||'Warehouse concept'}
+  shareOrCopy('Ivy Warehouse Design Tool summary – '+(S.name||'Warehouse concept'),`${S.name||'Warehouse concept'}
 Design: ${PALLET[d.pallet].n}; ${SMALL[d.small].n}; ${TRANSPORT[d.transport].n}; ${SORTER[d.sorter].n}
 Region: ${regionOf(S.demand).n}
 Profile: ${PRODUCT_TYPES[S.demand.productType][0]}, ${S.demand.productSize} items, ${S.demand.orderProfile.toUpperCase()}, ${S.demand.temp}
@@ -1464,7 +1464,7 @@ ${GROUPS.filter(g=>r.byG[g]>0).map(g=>`  ${g}: ${money(r.byG[g],false)}`).join('
 Footprint: ${n0(r.totArea)} m²
 Labour: ${n0(r.pkHeads)} peak heads/shift, ${n0(r.fte)} FTE
 Annual opex: ${money(r.opex,false)} (${S.cur}${r.perOrder.toFixed(2)}/order)
-Concept-stage estimate (range −25% / +40%) from RackRight benchmark rates (US$), before supplier quotes.`);
+Concept-stage estimate (range −25% / +40%) from Ivy Warehouse Design Tool benchmark rates (US$), before supplier quotes.`);
 };
 
 
@@ -1596,11 +1596,11 @@ function bindMeta(){
 }
 function renderSubmit(){
   const h=$('#submitHint'); if(!h) return;
-  h.innerHTML=`Fill in Demand and Design, add your details, then email the design for review${LIB.reviewEmail?` to <b>${esc(LIB.reviewEmail)}</b>`:''}. The email contains a summary and a link that opens this exact design in RackRight.${LIB.reviewEmail?'':' <span style="color:var(--bad)">The admin hasn\'t set a review email yet – you can still copy the link.</span>'}`;
+  h.innerHTML=`Fill in Demand and Design, add your details, then email the design for review${LIB.reviewEmail?` to <b>${esc(LIB.reviewEmail)}</b>`:''}. The email contains a summary and a link that opens this exact design in the Ivy Warehouse Design Tool.${LIB.reviewEmail?'':' <span style="color:var(--bad)">The admin hasn\'t set a review email yet – you can still copy the link.</span>'}`;
 }
 function reviewText(link){
   const r=last,d=S.design,m=S.meta||{};
-  return `RackRight design for review
+  return `Ivy Warehouse Design Tool – design for review
 
 Submitted by: ${m.rep||'-'}${m.email?' <'+m.email+'>':''}
 Customer / site: ${m.customer||'-'}
@@ -1615,7 +1615,7 @@ ${(()=>{const x=roiCalc(roiOpts());return `ROI vs ${x.b.name}: extra investment 
 
 Notes: ${m.notes||'-'}
 
-Open in RackRight to review:
+Open in the Ivy Warehouse Design Tool to review:
 ${link}`;
 }
 function checkMeta(){const m=S.meta||{};if(!m.rep||!m.customer){toast('Add your name and the customer first');$('#m_rep').focus();return false}return true}
@@ -1623,7 +1623,7 @@ $('#sendRev').onclick=async()=>{
   if(!checkMeta())return;
   const link=await reviewLink(), m=S.meta||{};
   S.meta={...m,submittedAt:new Date().toISOString()};persist();
-  const subj=`RackRight review: ${m.customer||''} – ${S.name||'design'} (${m.rep||''})`;
+  const subj=`Warehouse design review: ${m.customer||''} – ${S.name||'design'} (${m.rep||''})`;
   const body=reviewText(link);
   if(!LIB.reviewEmail){copy(body);return toast('No review email set – summary and link copied')}
   const url=`mailto:${encodeURIComponent(LIB.reviewEmail)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
